@@ -1,0 +1,111 @@
+@import "tailwindcss/base";
+@import "tailwindcss/components";
+@import "tailwindcss/utilities";
+
+html,
+body,
+#__next {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+@media print {
+  html,
+  body,
+  #__next {
+    height: auto !important;
+    overflow: visible !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  /* Hide all elements on the page by default during print */
+  body * {
+    visibility: hidden !important;
+  }
+
+  /* Reveal only the .print-section (assessment modal) and its children */
+  .print-section,
+  .print-section * {
+    visibility: visible !important;
+  }
+
+  /* Position the print-section perfectly on the printed page */
+  .print-section {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    box-shadow: none !important;
+    border: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border-radius: 0 !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  /* Strip dark background colors from panels for a clean ink-friendly white output */
+  .print-section .bg-slate-900,
+  .print-section .bg-slate-950,
+  .print-section .bg-indigo-950,
+  .print-section .bg-indigo-600,
+  .print-section .bg-gradient-to-br,
+  .print-section .bg-slate-50\/30,
+  .print-section .bg-slate-100\/50,
+  .print-section .bg-white {
+    background-color: #ffffff !important;
+    background-image: none !important;
+    color: #000000 !important;
+    border: 1px solid #e2e8f0 !important;
+  }
+
+  /* Make all text black for high readability on white paper */
+  .print-section h3,
+  .print-section div,
+  .print-section span,
+  .print-section p,
+  .print-section .text-white,
+  .print-section .text-slate-300,
+  .print-section .text-slate-400,
+  .print-section .text-indigo-400,
+  .print-section .text-slate-500 {
+    color: #000000 !important;
+  }
+
+  /* Hide utility elements, close buttons, action buttons, and background graphic illustrations */
+  .print-section .no-print,
+  .print-section button,
+  .print-section svg,
+  .print-section .absolute.top-0.right-0 {
+    display: none !important;
+  }
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(241, 245, 249, 0.5);
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(99, 102, 241, 0.4);
+  border-radius: 10px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(99, 102, 241, 0.6);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}

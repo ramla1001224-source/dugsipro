@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "628400203412",
+    "project_id": "smart-school-pro-6a325",
+    "storage_bucket": "smart-school-pro-6a325.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:628400203412:android:3a1c3a8bd42d78b2e7f681",
+        "android_client_info": {
+          "package_name": "com.xildhibanka.smart_school_pro"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDp-W9TkQn3afDigMhhbT1wkE75IdpnWKQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

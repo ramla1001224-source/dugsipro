@@ -1,0 +1,11 @@
+{
+  "name": "smart-school-pro-root",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "npm start --prefix backend",
+    "build": "npm run build --prefix backend",
+    "vercel-build": "npm run build --prefix frontend",
+    "postinstall": "npm install --prefix backend"
+  }
+}
