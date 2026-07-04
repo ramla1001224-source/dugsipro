@@ -57,8 +57,8 @@ router.get('/stats', authenticateToken, authorizeRoles('admin', 'super_admin', '
         console.log('[DASHBOARD] Stats Request received:', { academicYear, attendanceSession, shift, user: req.user.id });
 
         // Resolve schoolId logic (Secure & Multi-school aware)
-        let schoolId = (req.user.role === 'super_admin' || req.user.role === 'owner') 
-            ? (req.query.schoolId || null) 
+        let schoolId = (req.user.role === 'super_admin' || req.user.role === 'owner')
+            ? (req.query.schoolId || null)
             : req.user.schoolId;
 
         // Force schoolId recovery if missing from token for non-global users
@@ -102,7 +102,7 @@ router.get('/stats', authenticateToken, authorizeRoles('admin', 'super_admin', '
 
             if (academicYear && academicYear !== 'undefined') {
                 const cleanYear = academicYear.replace(/\s+/g, '').toLowerCase();
-                const allYears = await prisma.academicYear.findMany({ 
+                const allYears = await prisma.academicYear.findMany({
                     where: schoolFilter,
                     orderBy: [
                         { isCurrent: 'desc' },
@@ -111,7 +111,7 @@ router.get('/stats', authenticateToken, authorizeRoles('admin', 'super_admin', '
                 });
                 matchingYears = allYears.filter(y => (y.name || '').replace(/\s+/g, '').toLowerCase() === cleanYear);
             } else {
-                matchingYears = await prisma.academicYear.findMany({ 
+                matchingYears = await prisma.academicYear.findMany({
                     where: { ...schoolFilter, isCurrent: true },
                     orderBy: [
                         { isCurrent: 'desc' },
@@ -119,7 +119,7 @@ router.get('/stats', authenticateToken, authorizeRoles('admin', 'super_admin', '
                     ]
                 });
             }
-            
+
             // Smart Fallback 1: If no current/named year, check dates within the schoolFilter
             if (matchingYears.length === 0) {
                 const now = new Date();
@@ -147,7 +147,7 @@ router.get('/stats', authenticateToken, authorizeRoles('admin', 'super_admin', '
 
             targetYearIds = matchingYears.map(y => y.id);
             activeYearRecord = matchingYears[0] || null; // For naming/range context
-            
+
             console.log('[DASHBOARD] Resolved Year Context:', { name: activeYearRecord?.name, count: targetYearIds.length, isGlobal });
         } catch (e) { console.error('[DASHBOARD] AcademicYear Sync Error:', e.message); }
 
@@ -168,30 +168,30 @@ router.get('/stats', authenticateToken, authorizeRoles('admin', 'super_admin', '
                 sCnt, tCnt, pCnt, aCnt, stfCnt, cCnt,
                 pA, eA, sA, fS, sS, sC
             ] = await Promise.all([
-                prisma.enrollment.count({ 
-                    where: { 
-                        ...schoolFilter, 
+                prisma.enrollment.count({
+                    where: {
+                        ...schoolFilter,
                         isCurrent: true,
-                        status: { in: ['active', 'promoted', 'retained'] }, 
-                        ...(shift ? { section: { shift: { equals: shift, mode: 'insensitive' } } } : {}) 
-                    } 
+                        status: { in: ['active', 'promoted', 'retained'] },
+                        ...(shift ? { section: { shift: { equals: shift, mode: 'insensitive' } } } : {})
+                    }
                 }),
                 prisma.teacher.count({ where: { user: userSchoolFilter } }),
                 prisma.parent.count({ where: { user: userSchoolFilter } }),
                 prisma.user.count({ where: { role: 'admin', ...userSchoolFilter } }),
                 prisma.staff.count({ where: { user: userSchoolFilter } }),
                 prisma.section.count({ where: { ...schoolFilter, ...(shift ? { shift: { equals: shift, mode: 'insensitive' } } : {}) } }),
-                prisma.payment.aggregate({ 
-                    _sum: { amount: true }, 
-                    where: { 
-                        month: currentMonth, 
+                prisma.payment.aggregate({
+                    _sum: { amount: true },
+                    where: {
+                        month: currentMonth,
                         year: currentYear,
                         ...(shift ? { student: { section: { shift: { equals: shift, mode: 'insensitive' } } } } : {}),
-                         OR: [
+                        OR: [
                             { ...schoolFilter },
                             { student: { Enrollments: { some: { ...schoolFilter, isCurrent: true, ...(shift ? { section: { shift: { equals: shift, mode: 'insensitive' } } } : {}) } } } }
                         ]
-                    } 
+                    }
                 }),
                 prisma.expense.aggregate({ _sum: { amount: true }, where: { ...schoolFilter, date: { gte: startOfMonth, lte: endOfMonth } } }),
                 prisma.salaryRecord.aggregate({ _sum: { netSalary: true }, where: { ...schoolFilter, month: monthStr, status: 'paid' } }),
@@ -214,38 +214,38 @@ router.get('/stats', authenticateToken, authorizeRoles('admin', 'super_admin', '
             const [
                 pC, aC, lC, attendanceBySection, tSC, tSCFP, sCS, pPC, pTFY, eTBD, sTBM
             ] = await Promise.all([
-                prisma.attendance.count({ 
-                    where: { 
+                prisma.attendance.count({
+                    where: {
                         ...schoolFilter, date: { gte: startOfDay, lte: endOfDay }, status: 'Present',
                         student: { Enrollments: { some: { isCurrent: true, status: { in: ['active', 'promoted', 'retained'] }, ...schoolFilter } } },
                         ...(attendanceSession && attendanceSession !== 'undefined' ? { session: { in: [attendanceSession, attendanceSession.replace(/_/g, ' '), attendanceSession.replace(/ /g, '_')], mode: 'insensitive' } } : {}),
-                        ...(shift ? { shift: { equals: shift, mode: 'insensitive' } } : {}) 
-                    } 
+                        ...(shift ? { shift: { equals: shift, mode: 'insensitive' } } : {})
+                    }
                 }),
-                prisma.attendance.count({ 
-                    where: { 
+                prisma.attendance.count({
+                    where: {
                         ...schoolFilter, date: { gte: startOfDay, lte: endOfDay }, status: 'Absent',
                         student: { Enrollments: { some: { isCurrent: true, status: { in: ['active', 'promoted', 'retained'] }, ...schoolFilter } } },
                         ...(attendanceSession && attendanceSession !== 'undefined' ? { session: { in: [attendanceSession, attendanceSession.replace(/_/g, ' '), attendanceSession.replace(/ /g, '_')], mode: 'insensitive' } } : {}),
-                        ...(shift ? { shift: { equals: shift, mode: 'insensitive' } } : {}) 
-                    } 
+                        ...(shift ? { shift: { equals: shift, mode: 'insensitive' } } : {})
+                    }
                 }),
-                prisma.attendance.count({ 
-                    where: { 
+                prisma.attendance.count({
+                    where: {
                         ...schoolFilter, date: { gte: startOfDay, lte: endOfDay }, status: 'Late',
                         student: { Enrollments: { some: { isCurrent: true, status: { in: ['active', 'promoted', 'retained'] }, ...schoolFilter } } },
                         ...(attendanceSession && attendanceSession !== 'undefined' ? { session: { in: [attendanceSession, attendanceSession.replace(/_/g, ' '), attendanceSession.replace(/ /g, '_')], mode: 'insensitive' } } : {}),
-                        ...(shift ? { shift: { equals: shift, mode: 'insensitive' } } : {}) 
-                    } 
+                        ...(shift ? { shift: { equals: shift, mode: 'insensitive' } } : {})
+                    }
                 }),
-                prisma.attendance.groupBy({ 
-                    by: ['sectionId'], 
+                prisma.attendance.groupBy({
+                    by: ['sectionId'],
                     _count: { id: true },
-                    where: { 
+                    where: {
                         ...schoolFilter, date: { gte: startOfDay, lte: endOfDay },
                         ...(attendanceSession && attendanceSession !== 'undefined' ? { session: { in: [attendanceSession, attendanceSession.replace(/_/g, ' '), attendanceSession.replace(/ /g, '_')], mode: 'insensitive' } } : {}),
                         ...(shift ? { shift: { equals: shift, mode: 'insensitive' } } : {})
-                    } 
+                    }
                 }),
                 prisma.section.count({ where: { ...schoolFilter, ...(shift ? { shift: { equals: shift, mode: 'insensitive' } } : {}) } }),
                 prisma.enrollment.count({ where: { ...schoolFilter, isCurrent: true, status: { in: ['active', 'promoted', 'retained'] }, ...(shift ? { section: { shift: { equals: shift, mode: 'insensitive' } } } : {}) } }),
@@ -253,45 +253,45 @@ router.get('/stats', authenticateToken, authorizeRoles('admin', 'super_admin', '
                 prisma.enrollment.groupBy({
                     by: ['sectionId'],
                     _count: { id: true },
-                    where: { 
-                        ...schoolFilter, 
-                        isCurrent: true, 
+                    where: {
+                        ...schoolFilter,
+                        isCurrent: true,
                         status: { in: ['active', 'promoted', 'retained'] },
                         ...(shift ? { section: { shift: { equals: shift, mode: 'insensitive' } } } : {})
                     }
                 }),
-                prisma.monthlyPaymentRecord.count({ 
-                    where: { 
-                        student: { 
+                prisma.monthlyPaymentRecord.count({
+                    where: {
+                        student: {
                             user: { schoolId: schoolId || undefined },
                             Enrollments: { some: { isCurrent: true, status: { in: ['active', 'promoted', 'retained'] }, ...schoolFilter, ...(shift ? { section: { shift: { equals: shift, mode: 'insensitive' } } } : {}) } }
-                        }, 
+                        },
                         month: currentMonth, year: currentYear, status: 'paid',
                         ...(activeYearRecord ? { academicYearId: activeYearRecord.id } : {})
-                    } 
+                    }
                 }),
-                prisma.payment.groupBy({ 
-                    by: ['month', 'year'], 
-                    _sum: { amount: true }, 
-                    where: { 
+                prisma.payment.groupBy({
+                    by: ['month', 'year'],
+                    _sum: { amount: true },
+                    where: {
                         date: { gte: currentYearRecord?.startDate || startOfYear, lte: effectiveTrendEndDate },
                         OR: [{ ...schoolFilter }, { student: { Enrollments: { some: { ...schoolFilter, isCurrent: true } } } }]
-                    } 
+                    }
                 }),
-                prisma.expense.groupBy({ 
-                    by: ['date'], 
-                    _sum: { amount: true }, 
-                    where: { ...schoolFilter, date: { gte: currentYearRecord?.startDate || startOfYear, lte: effectiveTrendEndDate } } 
+                prisma.expense.groupBy({
+                    by: ['date'],
+                    _sum: { amount: true },
+                    where: { ...schoolFilter, date: { gte: currentYearRecord?.startDate || startOfYear, lte: effectiveTrendEndDate } }
                 }),
-                prisma.salaryRecord.groupBy({ 
-                    by: ['month'], 
-                    _sum: { netSalary: true }, 
-                    where: { ...schoolFilter, status: 'paid' } 
+                prisma.salaryRecord.groupBy({
+                    by: ['month'],
+                    _sum: { netSalary: true },
+                    where: { ...schoolFilter, status: 'paid' }
                 })
             ]);
-            
-            presentCount = pC; absentCount = aC; lateCount = lC; 
-            totalShiftClasses = tSC; totalStudentsCountForPayment = tSCFP; paidPaymentsCount = pPC; 
+
+            presentCount = pC; absentCount = aC; lateCount = lC;
+            totalShiftClasses = tSC; totalStudentsCountForPayment = tSCFP; paidPaymentsCount = pPC;
             paymentTotalsForYear = pTFY; expenseTotalsByDay = eTBD; salaryTotalsByMonth = sTBM;
 
             // PRECISE PENDING DETECTION: A section is "unmarked" if attendance count < student count
@@ -325,7 +325,7 @@ router.get('/stats', authenticateToken, authorizeRoles('admin', 'super_admin', '
         try {
             // Re-use feeStructures from Batch 1 if available
             const schoolFees = feeStructures.filter(f => f.frequency === 'monthly');
-            
+
             // We only need specific fields for revenue calculation
             const activeEnrollments = await prisma.enrollment.findMany({
                 where: {
@@ -334,10 +334,10 @@ router.get('/stats', authenticateToken, authorizeRoles('admin', 'super_admin', '
                     status: { in: ['active', 'promoted', 'retained'] },
                     ...(shift ? { section: { shift: { equals: shift, mode: 'insensitive' } } } : {})
                 },
-                select: { 
-                    classId: true, 
-                    sectionId: true, 
-                    student: { select: { scholarship: true } } 
+                select: {
+                    classId: true,
+                    sectionId: true,
+                    student: { select: { scholarship: true } }
                 }
             });
 
@@ -433,7 +433,7 @@ router.get('/student-stats', authenticateToken, authorizeRoles('student'), async
         const studentSchoolId = student.user?.schoolId || req.user.schoolId;
         const orConditions = [{ userId: student.userId }];
         if (student.student_id && student.student_id.trim() !== '') {
-            orConditions.push({ 
+            orConditions.push({
                 student_id: student.student_id,
                 user: { schoolId: studentSchoolId } // Correct relation path
             });
@@ -472,7 +472,7 @@ router.get('/student-stats', authenticateToken, authorizeRoles('student'), async
 
         const [attendance, recentPayments, examResults, allPaymentsSum, attendanceStats] = await Promise.all([
             prisma.attendance.findMany({
-                where: { 
+                where: {
                     studentId: { in: relatedIds },
                     ...(activeYear ? {
                         date: {
@@ -485,7 +485,7 @@ router.get('/student-stats', authenticateToken, authorizeRoles('student'), async
                 take: 14
             }),
             prisma.payment.findMany({
-                where: { 
+                where: {
                     studentId: { in: relatedIds },
                     // Only show payments from the last 3 months
                     date: { gte: new Date(new Date().setMonth(new Date().getMonth() - 3)) },
@@ -521,7 +521,7 @@ router.get('/student-stats', authenticateToken, authorizeRoles('student'), async
                 take: 10
             }),
             prisma.payment.aggregate({
-                where: { 
+                where: {
                     studentId: { in: relatedIds },
                     ...(activeYear ? {
                         OR: [
@@ -691,45 +691,45 @@ router.get('/accountant-stats', authenticateToken, authorizeRoles('accountant', 
         });
 
         const [paymentAggr, expenseAggr, paidSalAggr, paidCount, dayAttendance, totalSections] = await Promise.all([
-            prisma.payment.aggregate({ 
-                _sum: { amount: true }, 
-                where: { 
-                    ...schoolFilter, 
-                    month: currentMonth, 
+            prisma.payment.aggregate({
+                _sum: { amount: true },
+                where: {
+                    ...schoolFilter,
+                    month: currentMonth,
                     year: currentYear,
                     ...(activeYear ? { academicYearId: activeYear.id } : {}),
                     ...(shift ? { student: { section: { shift: { equals: shift, mode: 'insensitive' } } } } : {})
-                } 
+                }
             }),
             prisma.expense.aggregate({ _sum: { amount: true }, where: { ...schoolFilter, date: { gte: startOfMonth, lte: endOfMonth } } }),
             prisma.salaryRecord.aggregate({ _sum: { netSalary: true }, where: { ...schoolFilter, month: monthStr, status: 'paid' } }),
-            prisma.monthlyPaymentRecord.count({ 
-                where: { 
-                    student: { 
+            prisma.monthlyPaymentRecord.count({
+                where: {
+                    student: {
                         user: { schoolId },
                         ...(shift ? { section: { shift: { equals: shift, mode: 'insensitive' } } } : {})
-                    }, 
-                    month: currentMonth, 
-                    year: currentYear, 
+                    },
+                    month: currentMonth,
+                    year: currentYear,
                     status: 'paid',
                     ...(activeYear ? { academicYearId: activeYear.id } : {})
-                } 
+                }
             }),
             prisma.attendance.findMany({
-                where: { 
-                    ...schoolFilter, 
+                where: {
+                    ...schoolFilter,
                     date: { gte: startOfDay, lte: endOfDay },
-                    ...(session && session !== 'undefined' ? 
-                        { session: { in: [session, session.replace(/_/g, ' '), session.replace(/ /g, '_')], mode: 'insensitive' } } : {}), 
+                    ...(session && session !== 'undefined' ?
+                        { session: { in: [session, session.replace(/_/g, ' '), session.replace(/ /g, '_')], mode: 'insensitive' } } : {}),
                     ...(shift ? { shift: { equals: shift, mode: 'insensitive' } } : {})
                 },
                 select: { status: true, sectionId: true }
             }),
-            prisma.section.count({ 
-                where: { 
+            prisma.section.count({
+                where: {
                     ...schoolFilter,
                     ...(shift ? { shift: { equals: shift, mode: 'insensitive' } } : {})
-                } 
+                }
             })
         ]);
 
@@ -776,10 +776,10 @@ router.get('/accountant-stats', authenticateToken, authorizeRoles('accountant', 
                         ...(activeYear ? { academicYearId: activeYear.id } : {}),
                         ...(shift ? { section: { shift: { equals: shift, mode: 'insensitive' } } } : {})
                     },
-                    select: { 
-                        classId: true, 
-                        sectionId: true, 
-                        student: { select: { scholarship: true } } 
+                    select: {
+                        classId: true,
+                        sectionId: true,
+                        student: { select: { scholarship: true } }
                     }
                 }),
                 prisma.feeStructure.findMany({
@@ -794,7 +794,7 @@ router.get('/accountant-stats', authenticateToken, authorizeRoles('accountant', 
 
                 if (e.student?.scholarship === 'full') baseFee = 0;
                 else if (e.student?.scholarship === 'half') baseFee /= 2;
-                
+
                 expectedRevenue += baseFee;
             });
         } catch (e) {
@@ -978,7 +978,7 @@ router.get('/charts', authenticateToken, authorizeRoles('admin', 'super_admin', 
     try {
         const { fromDate, toDate, academicYear, session } = req.query;
         // academicYear takes priority for historical trends, session handles attendance distribution
-        const targetSession = academicYear || session; 
+        const targetSession = academicYear || session;
 
         // Resolve schoolId
         const schoolId = (req.user.role === 'super_admin' || req.user.role === 'owner') ? req.query.schoolId : req.user.schoolId;
@@ -1006,7 +1006,7 @@ router.get('/charts', authenticateToken, authorizeRoles('admin', 'super_admin', 
         const todayEndOfDayCharts = new Date(new Date().setUTCHours(23, 59, 59, 999));
         let startFilter = activeYearRecord?.startDate || new Date(Date.UTC(currentYearNum, 0, 1));
         let endFilter = activeYearRecord?.endDate ? new Date(new Date(activeYearRecord.endDate).setUTCHours(23, 59, 59, 999)) : new Date(Date.UTC(currentYearNum, 11, 31, 23, 59, 59));
-        
+
         // If this is the current active year, allow looking at data up to today
         if (activeYearRecord?.isCurrent && todayEndOfDayCharts > endFilter) {
             endFilter = todayEndOfDayCharts;
@@ -1226,10 +1226,10 @@ router.get('/attendance-details', authenticateToken, authorizeRoles('admin', 'su
                 const studentCounts = await prisma.enrollment.groupBy({
                     by: ['sectionId'],
                     _count: { id: true },
-                    where: { 
-                        ...schoolFilter, 
-                        isCurrent: true, 
-                        status: { in: ['active', 'promoted', 'retained'] } 
+                    where: {
+                        ...schoolFilter,
+                        isCurrent: true,
+                        status: { in: ['active', 'promoted', 'retained'] }
                     }
                 });
 
@@ -1240,8 +1240,8 @@ router.get('/attendance-details', authenticateToken, authorizeRoles('admin', 'su
                     where: {
                         ...schoolFilter,
                         date: { gte: startOfDay, lte: endOfDay },
-                        ...(session && session !== 'undefined' ? 
-                            { session: { in: [session, session.replace(/_/g, ' '), session.replace(/ /g, '_')], mode: 'insensitive' } } : {}), 
+                        ...(session && session !== 'undefined' ?
+                            { session: { in: [session, session.replace(/_/g, ' '), session.replace(/ /g, '_')], mode: 'insensitive' } } : {}),
                         ...(shift && shift !== 'undefined' ? { shift: { equals: shift, mode: 'insensitive' } } : {})
                     }
                 });
@@ -1250,7 +1250,7 @@ router.get('/attendance-details', authenticateToken, authorizeRoles('admin', 'su
                 const pendingSections = sections.filter(s => {
                     const studentCount = studentCounts.find(c => c.sectionId === s.id)?._count?.id || 0;
                     const attendanceCount = attendanceCounts.find(c => c.sectionId === s.id)?._count?.id || 0;
-                    
+
                     // If there are students but not all have attendance, it's pending
                     return studentCount > 0 && attendanceCount < studentCount;
                 });
@@ -1272,8 +1272,8 @@ router.get('/attendance-details', authenticateToken, authorizeRoles('admin', 'su
                 date: { gte: startOfDay, lte: endOfDay },
                 status: status === 'Present' ? { in: ['Present', 'Late'] } : status,
                 ...(req.user.role === 'teacher' ? { sectionId: teacherSectionFilter.id } : {}),
-                ...(session && session !== 'undefined' ? 
-                    { session: { in: [session, session.replace(/_/g, ' '), session.replace(/ /g, '_')], mode: 'insensitive' } } : {}), 
+                ...(session && session !== 'undefined' ?
+                    { session: { in: [session, session.replace(/_/g, ' '), session.replace(/ /g, '_')], mode: 'insensitive' } } : {}),
                 ...(shift && shift !== 'undefined' ? { section: { shift: { equals: shift, mode: 'insensitive' } } } : {})
             },
             include: {
@@ -1466,8 +1466,8 @@ router.get('/superadmin', authenticateToken, authorizeRoles('super_admin', 'owne
 
             // Financials within the academic year date range
             prisma.payment.aggregate({
-                where: { 
-                    schoolId: { in: schoolIds }, 
+                where: {
+                    schoolId: { in: schoolIds },
                     ...(startFilter && endFilter ? { date: { gte: startFilter, lte: endFilter } } : {})
                 },
                 _sum: { amount: true }
@@ -1475,8 +1475,8 @@ router.get('/superadmin', authenticateToken, authorizeRoles('super_admin', 'owne
 
             // Financials for THIS MONTH (Global)
             prisma.payment.aggregate({
-                where: { 
-                    schoolId: { in: schoolIds }, 
+                where: {
+                    schoolId: { in: schoolIds },
                     date: { gte: startOfMonth, lte: endOfMonth }
                 },
                 _sum: { amount: true }
@@ -1485,10 +1485,10 @@ router.get('/superadmin', authenticateToken, authorizeRoles('super_admin', 'owne
             // Monthly Trends (limit to last 12 months or academic year months)
             prisma.payment.groupBy({
                 by: ['month', 'year'],
-                where: { 
-                    schoolId: { in: schoolIds }, 
-                    ...(startFilter && endFilter ? { date: { gte: startFilter, lte: endFilter } } : { 
-                        date: { gte: new Date(today.getFullYear() - 1, today.getMonth(), 1) } 
+                where: {
+                    schoolId: { in: schoolIds },
+                    ...(startFilter && endFilter ? { date: { gte: startFilter, lte: endFilter } } : {
+                        date: { gte: new Date(today.getFullYear() - 1, today.getMonth(), 1) }
                     })
                 },
                 _sum: { amount: true },
@@ -1498,8 +1498,8 @@ router.get('/superadmin', authenticateToken, authorizeRoles('super_admin', 'owne
             // Collection Efficiency Support: Total students and their expected revenue
             // For a "Global" estimate, we use the sum of balances + sum of payments
             prisma.enrollment.aggregate({
-                where: { 
-                    schoolId: { in: schoolIds }, 
+                where: {
+                    schoolId: { in: schoolIds },
                     ...(academicYearId ? { academicYearId } : { isCurrent: true }),
                     status: 'active'
                 },
@@ -1508,10 +1508,10 @@ router.get('/superadmin', authenticateToken, authorizeRoles('super_admin', 'owne
         ];
 
         const [
-            globalStudents, 
-            globalTeachers, 
-            yearRevenueAgg, 
-            thisMonthRevenueAgg, 
+            globalStudents,
+            globalTeachers,
+            yearRevenueAgg,
+            thisMonthRevenueAgg,
             monthlyTrendsAgg,
             totalBalancesAgg
         ] = await Promise.all(queries);
@@ -1534,8 +1534,8 @@ router.get('/superadmin', authenticateToken, authorizeRoles('super_admin', 'owne
             // Student counts per school for the selected year
             prisma.enrollment.groupBy({
                 by: ['schoolId'],
-                where: { 
-                    schoolId: { in: schoolIds }, 
+                where: {
+                    schoolId: { in: schoolIds },
                     ...(academicYearId ? { academicYearId } : { isCurrent: true }),
                     status: { in: ['active', 'promoted', 'retained'] }
                 },
@@ -1548,8 +1548,8 @@ router.get('/superadmin', authenticateToken, authorizeRoles('super_admin', 'owne
             }),
             prisma.payment.groupBy({
                 by: ['schoolId'],
-                where: { 
-                    schoolId: { in: schoolIds }, 
+                where: {
+                    schoolId: { in: schoolIds },
                     ...(startFilter && endFilter ? { date: { gte: startFilter, lte: endFilter } } : { year: today.getFullYear() })
                 },
                 _sum: { amount: true }
