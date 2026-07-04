@@ -2915,8 +2915,7 @@ router.get('/export-template', authenticateToken, async (req, res) => {
         const data = enrollments.map(e => ({
             'Student ID': e.student.student_id || e.studentId,
             'Student Name': e.student.user.name,
-            'Marks': marksMap.has(e.studentId) ? marksMap.get(e.studentId) : '',
-            'Internal ID (Do Not Edit)': e.studentId
+            'Marks': marksMap.has(e.studentId) ? marksMap.get(e.studentId) : ''
         }));
 
         const ws = xlsx.utils.json_to_sheet(data);
@@ -2964,7 +2963,7 @@ router.post('/import-marks', authenticateToken, authorizeRoles('admin', 'teacher
         let errors = [];
 
         for (const row of data) {
-            const studentId = row['Internal ID (Do Not Edit)'] || row['Student ID'];
+            const studentId = row['Student ID'];
             const marksStr = row['Marks'];
             
             if (marksStr === undefined || marksStr === null || marksStr === '') continue; // Skip empty
