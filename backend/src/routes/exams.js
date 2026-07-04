@@ -2870,6 +2870,8 @@ router.get('/bulk-sms-status', authenticateToken, async (req, res) => {
         console.error('Bulk SMS Status Error:', err);
         return res.status(500).json({ message: 'Error fetching SMS status' });
     }
+});
+
 // Download Excel Template for Marks
 router.get('/export-template', authenticateToken, async (req, res) => {
     try {
