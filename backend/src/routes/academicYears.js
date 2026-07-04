@@ -613,10 +613,22 @@ router.post('/:id/promote-publish', authenticateToken, authorizeRoles('admin', '
             });
         }
 
-        // 5. AUTO-DELETE: Remove attendance and SMS logs for the FINISHED year
+        // 5. AUTO-DELETE: Remove attendance, SMS logs and announcements for the FINISHED year
         if (schoolId && sourceYear.startDate && sourceYear.endDate) {
             try {
                 const pDateRange = { gte: new Date(sourceYear.startDate), lte: new Date(sourceYear.endDate) };
+
+                // Delete AnnouncementTargets first (FK constraint), then Announcements
+                const oldAnnouncements = await prisma.announcement.findMany({
+                    where: { schoolId },
+                    select: { id: true }
+                });
+                const oldAnnouncementIds = oldAnnouncements.map(a => a.id);
+                if (oldAnnouncementIds.length > 0) {
+                    await prisma.announcementTarget.deleteMany({ where: { announcementId: { in: oldAnnouncementIds } } });
+                    await prisma.announcement.deleteMany({ where: { id: { in: oldAnnouncementIds } } });
+                }
+
                 await Promise.all([
                     prisma.attendance.deleteMany({ where: { schoolId, date: pDateRange } }),
                     prisma.smsLog.deleteMany({ where: { schoolId, created_at: pDateRange } }),
@@ -624,7 +636,7 @@ router.post('/:id/promote-publish', authenticateToken, authorizeRoles('admin', '
                     prisma.quiz.deleteMany({ where: { schoolId, created_at: pDateRange } }),
                     prisma.virtualClass.deleteMany({ where: { schoolId, created_at: pDateRange } })
                 ]);
-                console.log(`[AUTO-CLEANUP] Deleted data for year ${sourceYear.name} (School: ${schoolId})`);
+                console.log(`[AUTO-CLEANUP] Deleted data + ${oldAnnouncementIds.length} announcements for year ${sourceYear.name} (School: ${schoolId})`);
             } catch (e) {
                 console.error('[AUTO-CLEANUP ERROR]:', e);
             }
@@ -773,6 +785,17 @@ router.post('/:id/promote-students', authenticateToken, authorizeRoles('admin', 
 
         if (schoolId && sourceYear.startDate && sourceYear.endDate) {
             try {
+                // Delete all announcements for this school when new year starts
+                const oldAnnouncements = await prisma.announcement.findMany({
+                    where: { schoolId },
+                    select: { id: true }
+                });
+                const oldAnnouncementIds = oldAnnouncements.map(a => a.id);
+                if (oldAnnouncementIds.length > 0) {
+                    await prisma.announcementTarget.deleteMany({ where: { announcementId: { in: oldAnnouncementIds } } });
+                    await prisma.announcement.deleteMany({ where: { id: { in: oldAnnouncementIds } } });
+                }
+
                 await prisma.attendance.deleteMany({
                     where: { schoolId, date: { gte: new Date(sourceYear.startDate), lte: new Date(sourceYear.endDate) } }
                 });
@@ -790,7 +813,8 @@ router.post('/:id/promote-students', authenticateToken, authorizeRoles('admin', 
                 await prisma.virtualClass.deleteMany({
                     where: { schoolId, created_at: { gte: new Date(sourceYear.startDate), lte: new Date(sourceYear.endDate) } }
                 });
-            } catch (e) {}
+                console.log(`[AUTO-CLEANUP] Deleted ${oldAnnouncementIds.length} announcements for school ${schoolId}`);
+            } catch (e) { console.error('[AUTO-CLEANUP ERROR]:', e); }
         }
 
         return res.json({
