@@ -224,6 +224,55 @@ export default function AdminExams() {
         setQuickAddResult(null)
     }
 
+    const handleDownloadExcel = (exam) => {
+        const sectionParam = exam.sectionId ? `&sectionId=${exam.sectionId}` : '';
+        const url = `${apiUrl}/api/exams/export-template?examId=${exam.id}&classId=${exam.classId}&subjectId=${exam.subjectId}${sectionParam}`;
+        
+        axios.get(url, { headers: headers(), responseType: 'blob' }).then(res => {
+            const blobUrl = window.URL.createObjectURL(new Blob([res.data]));
+            const link = document.createElement('a');
+            link.href = blobUrl;
+            link.setAttribute('download', `${exam.subject?.name || 'Marks'}_Template.xlsx`);
+            document.body.appendChild(link);
+            link.click();
+            link.parentNode.removeChild(link);
+        }).catch(err => {
+            console.error('Download error:', err);
+            alert('Khalad ayaa dhacay markii la soo dejinayey Excel-ka.');
+        });
+    }
+
+    const handleUploadExcel = (exam) => {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.xlsx, .xls';
+        input.onchange = (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('examId', exam.id);
+            
+            setLoadingExamId(exam.id);
+            
+            axios.post(`${apiUrl}/api/exams/import-marks`, formData, { 
+                headers: { ...headers(), 'Content-Type': 'multipart/form-data' } 
+            }).then(res => {
+                alert(res.data.message || 'Waa la keydiyey.');
+                if (res.data.errors && res.data.errors.length > 0) {
+                    alert('Qaladaad:\n' + res.data.errors.join('\n'));
+                }
+                fetchAll();
+            }).catch(err => {
+                console.error('Upload error:', err);
+                alert(err.response?.data?.message || 'Cillad ayaa dhacday markii Excel-ka la akhriyey.');
+            }).finally(() => {
+                setLoadingExamId(null);
+            });
+        };
+        input.click();
+    }
+
     const submitGrades = async () => {
         setSaving(true)
         try {
@@ -901,7 +950,7 @@ export default function AdminExams() {
                                                                                 <button
                                                                                     disabled={loadingExamId === ex.id}
                                                                                     onClick={() => openGrading(ex)}
-                                                                                    className="flex-1 bg-white hover:bg-slate-50 text-slate-900 px-6 py-3 rounded-2xl font-black text-[9px] uppercase tracking-widest transition-all border-2 border-slate-100 flex items-center justify-center gap-2 shadow-sm hover:border-indigo-100 active:scale-95 disabled:opacity-50"
+                                                                                    className="flex-1 bg-white hover:bg-slate-50 text-slate-900 px-6 py-3 rounded-l-2xl font-black text-[9px] uppercase tracking-widest transition-all border-2 border-r-0 border-slate-100 flex items-center justify-center gap-2 shadow-sm hover:border-indigo-100 active:scale-95 disabled:opacity-50"
                                                                                 >
                                                                                     {loadingExamId === ex.id ? (
                                                                                         <svg className="animate-spin w-4 h-4 text-indigo-500" fill="none" viewBox="0 0 24 24">
@@ -913,6 +962,25 @@ export default function AdminExams() {
                                                                                     )}
                                                                                     <span>{loadingExamId === ex.id ? 'Loading...' : 'GELI MARKS'}</span>
                                                                                 </button>
+                                                                                
+                                                                                <div className="flex border-2 border-slate-100 rounded-r-2xl border-l-0 overflow-hidden shadow-sm">
+                                                                                    <button
+                                                                                        disabled={loadingExamId === ex.id}
+                                                                                        onClick={() => handleDownloadExcel(ex)}
+                                                                                        title="Download Excel Template"
+                                                                                        className="bg-white hover:bg-emerald-50 text-emerald-600 px-3 py-3 transition-all flex items-center justify-center active:scale-95 disabled:opacity-50 border-r border-slate-100"
+                                                                                    >
+                                                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                                                                                    </button>
+                                                                                    <button
+                                                                                        disabled={loadingExamId === ex.id}
+                                                                                        onClick={() => handleUploadExcel(ex)}
+                                                                                        title="Upload Excel Marks"
+                                                                                        className="bg-white hover:bg-indigo-50 text-indigo-600 px-3 py-3 transition-all flex items-center justify-center active:scale-95 disabled:opacity-50"
+                                                                                    >
+                                                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                                                                                    </button>
+                                                                                </div>
                                                                                 {(ex.status === 'draft' || userRole === 'admin' || userRole === 'owner') && (
                                                                                     <>
                                                                                         {userRole === 'admin' && ex.status === 'draft' && (

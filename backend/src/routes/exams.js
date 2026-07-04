@@ -7,6 +7,11 @@ const { createNotification, createOrUpdateNotification } = require('../utils/not
 const responseHelper = require('../utils/responseHelper');
 const { sendPushNotification } = require('../services/notificationService');
 const { enqueueBulkSMS } = require('../services/smsQueue');
+const multer = require('multer');
+const xlsx = require('xlsx');
+
+// Multer config for in-memory upload
+const upload = multer({ storage: multer.memoryStorage() });
 
 // Helper to calculate grade based on school's GradingScale settings
 const calculateGrade = (marks, totalMarks, scales = []) => {
@@ -2864,6 +2869,169 @@ router.get('/bulk-sms-status', authenticateToken, async (req, res) => {
     } catch (err) {
         console.error('Bulk SMS Status Error:', err);
         return res.status(500).json({ message: 'Error fetching SMS status' });
+    }
+// Download Excel Template for Marks
+router.get('/export-template', authenticateToken, async (req, res) => {
+    try {
+        const { classId, sectionId, subjectId, examId, session } = req.query;
+        let schoolId = req.user.schoolId;
+        
+        if (req.user.role === 'super_admin' && req.query.schoolId) {
+            schoolId = req.query.schoolId;
+        }
+        
+        // Ensure class, section, subject are provided
+        if (!classId || !subjectId || !examId) {
+            return res.status(400).json({ message: 'classId, subjectId, and examId are required' });
+        }
+
+        const exam = await prisma.exam.findUnique({ where: { id: examId } });
+        if (!exam) return res.status(404).json({ message: 'Exam not found' });
+
+        const enrollments = await prisma.enrollment.findMany({
+            where: {
+                classId,
+                ...(sectionId ? { sectionId } : {}),
+                schoolId,
+                isCurrent: true
+            },
+            include: {
+                student: { include: { user: true } }
+            }
+        });
+
+        // Get existing marks if any
+        const existingResults = await prisma.examResult.findMany({
+            where: {
+                examId,
+                studentId: { in: enrollments.map(e => e.studentId) }
+            }
+        });
+        const marksMap = new Map(existingResults.map(r => [r.studentId, r.marks]));
+
+        // Generate Excel data
+        const data = enrollments.map(e => ({
+            'Student ID': e.student.student_id || e.studentId,
+            'Student Name': e.student.user.name,
+            'Marks': marksMap.has(e.studentId) ? marksMap.get(e.studentId) : '',
+            'Internal ID (Do Not Edit)': e.studentId
+        }));
+
+        const ws = xlsx.utils.json_to_sheet(data);
+        const wb = xlsx.utils.book_new();
+        xlsx.utils.book_append_sheet(wb, ws, "Marks");
+
+        const buffer = xlsx.write(wb, { type: 'buffer', bookType: 'xlsx' });
+        
+        res.setHeader('Content-Disposition', 'attachment; filename="marks_template.xlsx"');
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.send(buffer);
+    } catch (err) {
+        console.error('Export Template Error:', err);
+        res.status(500).json({ message: 'Error exporting template' });
+    }
+});
+
+// Import Marks from Excel
+router.post('/import-marks', authenticateToken, authorizeRoles('admin', 'teacher', 'accountant'), upload.single('file'), async (req, res) => {
+    try {
+        const { examId } = req.body;
+        if (!req.file || !examId) {
+            return res.status(400).json({ message: 'Faylka Excel iyo examId waa qasab.' });
+        }
+
+        const exam = await prisma.exam.findUnique({ where: { id: examId } });
+        if (!exam) {
+            return res.status(404).json({ message: 'Imtixaanka lama helin.' });
+        }
+
+        const gradingScales = await prisma.gradingScale.findMany({
+            where: { schoolId: exam.schoolId },
+            orderBy: { minScore: 'desc' }
+        });
+
+        const wb = xlsx.read(req.file.buffer, { type: 'buffer' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const data = xlsx.utils.sheet_to_json(ws);
+
+        if (!data || data.length === 0) {
+            return res.status(400).json({ message: 'Faylka Excel waa faaruq.' });
+        }
+
+        let successCount = 0;
+        let errors = [];
+
+        for (const row of data) {
+            const studentId = row['Internal ID (Do Not Edit)'] || row['Student ID'];
+            const marksStr = row['Marks'];
+            
+            if (marksStr === undefined || marksStr === null || marksStr === '') continue; // Skip empty
+            
+            const marksVal = parseFloat(marksStr);
+
+            if (!studentId) {
+                errors.push(`Row without student ID skipped.`);
+                continue;
+            }
+
+            if (isNaN(marksVal)) {
+                errors.push(`Ardayga ${studentId} dhibcihiisu sax maaha.`);
+                continue;
+            }
+
+            if (marksVal > exam.totalMarks) {
+                errors.push(`Ardayga ${studentId} dhibcihiisu way ka badan yihiin (${marksVal} > ${exam.totalMarks}).`);
+                continue;
+            }
+
+            try {
+                // Determine target student based on UUID or Code
+                let targetStudent = await prisma.student.findFirst({
+                    where: { 
+                        OR: [
+                            { id: studentId.toString() },
+                            { student_id: studentId.toString() }
+                        ],
+                        user: { schoolId: exam.schoolId }
+                    },
+                    include: { user: true }
+                });
+
+                if (!targetStudent) {
+                    errors.push(`Ardayga ID-giisu yahay ${studentId} lama helin.`);
+                    continue;
+                }
+
+                await prisma.examResult.upsert({
+                    where: { examId_studentId: { examId, studentId: targetStudent.id } },
+                    update: {
+                        marks: marksVal,
+                        grade: calculateGrade(marksVal, exam.totalMarks, gradingScales),
+                        sectionId: targetStudent.sectionId || undefined
+                    },
+                    create: {
+                        examId,
+                        studentId: targetStudent.id,
+                        sectionId: targetStudent.sectionId || null,
+                        marks: marksVal,
+                        grade: calculateGrade(marksVal, exam.totalMarks, gradingScales)
+                    }
+                });
+                successCount++;
+            } catch (err) {
+                console.error(`Import Error for ${studentId}:`, err);
+                errors.push(`Cillad ayaa ka dhacday keydinta ardayga ${studentId}.`);
+            }
+        }
+
+        res.json({ 
+            message: `${successCount} arday buundooyinkooda si sax ah ayaa loo keydiyey.`, 
+            errors: errors.length > 0 ? errors : undefined 
+        });
+
+    } catch (err) {
+        console.error('Import Marks Error:', err);
+        res.status(500).json({ message: 'Cillad ayaa dhacday markii Excel la akhrinayey.' });
     }
 });
 
