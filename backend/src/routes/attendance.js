@@ -289,8 +289,8 @@ router.post('/', authenticateToken, authorizeRoles('admin', 'teacher', 'accounta
       const enrollment = enrollmentMap.get(String(item.studentId));
       let studentSectionId = item.sectionId || sectionId || enrollment?.sectionId;
       // Explicit shift from request ALWAYS wins; fallback to section shift, then 'morning'
-      let finalShift = (shift && shift !== 'undefined' && shift !== '') 
-        ? shift 
+      let finalShift = (shift && shift !== 'undefined' && shift !== '')
+        ? shift
         : (enrollment?.section?.shift || 'morning');
 
       if (!studentSectionId) {
@@ -394,6 +394,8 @@ router.post('/', authenticateToken, authorizeRoles('admin', 'teacher', 'accounta
           const sessionMap = {
             'break1': 'break 1aad',
             'break2': 'break 2aad',
+            'break 1': 'break 1aad',
+            'break 2': 'break 2aad',
             'morning': 'subaxii',
             'afternoon': 'galabtii',
             'night': 'habeenkii'
@@ -403,7 +405,7 @@ router.post('/', authenticateToken, authorizeRoles('admin', 'teacher', 'accounta
           // Dynamic Labels based on Institution Type and Shift Time
           const instType = (schoolInfo?.institutionType || 'school').toLowerCase();
           const instLabel = instType === 'machad' ? 'machadka' : 'schoolka';
-          
+
           const timeMap = {
             'morning': 'saaka',
             'afternoon': 'galabta',
@@ -444,7 +446,7 @@ router.post('/', authenticateToken, authorizeRoles('admin', 'teacher', 'accounta
             // Push notification (fire-and-forget per student)
             if (parent?.user?.fcmToken) {
               const title = 'Maqnaansho Arday';
-              const body = `Ogeysiis: ${studentName} ${timeLabel} ${instLabel} ma soo xaadirin fadhiga ${session}.`;
+              const body = `Ogeysiis: ${studentName} ${timeLabel} ${instLabel} ma soo xaadirin fadhiga ${sessionSomali}.`;
               console.log(`[AttendanceNotification] Sending push to parent: ${parent.user.name}, Token: ${parent.user.fcmToken.substring(0, 10)}...`);
               sendPushNotification([parent.user.fcmToken], title, body, { type: 'attendance', studentId: studentInfo.id })
                 .then(() => console.log(`[AttendanceNotification] Push success for ${studentName}`))
@@ -456,7 +458,7 @@ router.post('/', authenticateToken, authorizeRoles('admin', 'teacher', 'accounta
             // In-app DB notification
             if (parent?.userId) {
               const title = 'Maqnaansho Arday';
-              const body = `Ogeysiis: ${studentName} ${timeLabel} ${instLabel} ma soo xaadirin fadhiga ${session}.`;
+              const body = `Ogeysiis: ${studentName} ${timeLabel} ${instLabel} ma soo xaadirin fadhiga ${sessionSomali}.`;
               createNotification({
                 userId: parent.userId,
                 title,
@@ -533,32 +535,32 @@ router.get('/student/:id', authenticateToken, async (req, res) => {
     if (req.user.role === 'super_admin' && req.query.schoolId) {
       schoolId = req.query.schoolId;
     }
-    
+
     // Support identity unification for the specific query too
     // IMPORTANT: Scope student_id match to same school to prevent cross-branch data leakage
     const targetStudent = await prisma.student.findUnique({ where: { id: studentId } });
     let relatedIds = [studentId];
     if (targetStudent) {
-        // Always include all records linked to same userId
-        const byUserId = await prisma.student.findMany({
-            where: { userId: targetStudent.userId },
-            select: { id: true }
+      // Always include all records linked to same userId
+      const byUserId = await prisma.student.findMany({
+        where: { userId: targetStudent.userId },
+        select: { id: true }
+      });
+      // Add same-school records with matching student_id
+      let byStudentId = [];
+      if (targetStudent.student_id && targetStudent.user?.schoolId) {
+        byStudentId = await prisma.student.findMany({
+          where: {
+            student_id: { equals: targetStudent.student_id, mode: 'insensitive' },
+            user: { schoolId: targetStudent.user.schoolId }
+          },
+          select: { id: true }
         });
-        // Add same-school records with matching student_id
-        let byStudentId = [];
-        if (targetStudent.student_id && targetStudent.user?.schoolId) {
-            byStudentId = await prisma.student.findMany({
-                where: {
-                    student_id: { equals: targetStudent.student_id, mode: 'insensitive' },
-                    user: { schoolId: targetStudent.user.schoolId }
-                },
-                select: { id: true }
-            });
-        }
-        relatedIds = [...new Set([
-            ...byUserId.map(r => r.id),
-            ...byStudentId.map(r => r.id)
-        ])];
+      }
+      relatedIds = [...new Set([
+        ...byUserId.map(r => r.id),
+        ...byStudentId.map(r => r.id)
+      ])];
     }
 
     let where = { studentId: { in: relatedIds } };
@@ -583,8 +585,8 @@ router.get('/student/:id', authenticateToken, async (req, res) => {
         where.date.lte = ed;
       }
     } else if (academicYearId) {
-      const ay = await prisma.academicYear.findFirst({ 
-        where: { id: academicYearId, ...(schoolId ? { schoolId } : {}) } 
+      const ay = await prisma.academicYear.findFirst({
+        where: { id: academicYearId, ...(schoolId ? { schoolId } : {}) }
       });
       if (ay) {
         where.date = {
@@ -739,72 +741,72 @@ router.get('/monthly-summary', authenticateToken, async (req, res) => {
 
 // Get detailed monthly attendance matrix (student vs days) for a section
 router.get('/monthly-register', authenticateToken, async (req, res) => {
-    const { sectionId, classId, month, year, academicYearId, asOfDate } = req.query;
-    if (!sectionId && !classId) return res.status(400).json({ message: 'Missing sectionId or classId' });
-    if (!academicYearId && (!month || !year)) return res.status(400).json({ message: 'Missing month/year or academicYearId' });
+  const { sectionId, classId, month, year, academicYearId, asOfDate } = req.query;
+  if (!sectionId && !classId) return res.status(400).json({ message: 'Missing sectionId or classId' });
+  if (!academicYearId && (!month || !year)) return res.status(400).json({ message: 'Missing month/year or academicYearId' });
 
-    try {
-      let schoolId = req.user.schoolId;
-      if (req.user.role === 'super_admin' && req.query.schoolId) {
-        schoolId = req.query.schoolId;
+  try {
+    let schoolId = req.user.schoolId;
+    if (req.user.role === 'super_admin' && req.query.schoolId) {
+      schoolId = req.query.schoolId;
+    }
+
+    // Identify the academic year to use (ongoing year history)
+    const activeYear = await prisma.academicYear.findFirst({
+      where: { schoolId, isCurrent: true }
+    });
+    const yearToUse = academicYearId || activeYear?.id;
+
+    let dateFilter = {};
+    if (academicYearId) {
+      const ay = await prisma.academicYear.findUnique({ where: { id: academicYearId } });
+      if (ay) {
+        dateFilter = { gte: new Date(ay.startDate), lte: new Date(ay.endDate) };
       }
+    } else {
+      const startOfMonth = new Date(Date.UTC(year, month - 1, 1));
+      const endOfMonth = new Date(Date.UTC(year, month, 0, 23, 59, 59));
+      dateFilter = { gte: startOfMonth, lte: endOfMonth };
+    }
 
-      // Identify the academic year to use (ongoing year history)
-      const activeYear = await prisma.academicYear.findFirst({
-        where: { schoolId, isCurrent: true }
-      });
-      const yearToUse = academicYearId || activeYear?.id;
+    // Fetch ALL students enrolled in this academic year for this class/section.
+    // We do NOT filter by created_at because we want to show the full student list
+    // for any historical month within the current academic year.
+    const enrollmentWhere = {
+      ...(sectionId ? { sectionId } : { classId }),
+      schoolId,
+      ...(yearToUse ? { academicYearId: yearToUse } : { isCurrent: true }),
+    };
 
-      let dateFilter = {};
-      if (academicYearId) {
-        const ay = await prisma.academicYear.findUnique({ where: { id: academicYearId } });
-        if (ay) {
-          dateFilter = { gte: new Date(ay.startDate), lte: new Date(ay.endDate) };
+    const enrollments = await prisma.enrollment.findMany({
+      where: enrollmentWhere,
+      include: {
+        student: {
+          include: { user: { select: { name: true } } }
         }
-      } else {
-        const startOfMonth = new Date(Date.UTC(year, month - 1, 1));
-        const endOfMonth = new Date(Date.UTC(year, month, 0, 23, 59, 59));
-        dateFilter = { gte: startOfMonth, lte: endOfMonth };
-      }
+      },
+      orderBy: { student: { user: { name: 'asc' } } }
+    });
 
-      // Fetch ALL students enrolled in this academic year for this class/section.
-      // We do NOT filter by created_at because we want to show the full student list
-      // for any historical month within the current academic year.
-      const enrollmentWhere = {
-        ...(sectionId ? { sectionId } : { classId }),
-        schoolId,
-        ...(yearToUse ? { academicYearId: yearToUse } : { isCurrent: true }),
-      };
+    const students = enrollments.map(e => ({
+      ...e.student,
+      enrollmentId: e.id,
+      status: e.status
+    }));
 
-      const enrollments = await prisma.enrollment.findMany({
-        where: enrollmentWhere,
-        include: {
-          student: {
-            include: { user: { select: { name: true } } }
-          }
-        },
-        orderBy: { student: { user: { name: 'asc' } } }
-      });
+    // Get all attendance records for this date range (month/year)
+    // No academic year filter here — just look at actual attendance dates
+    const attendanceStudentIds = students.map(s => s.id);
+    const attendanceRecords = await prisma.attendance.findMany({
+      where: {
+        ...(schoolId ? { schoolId } : {}),
+        studentId: { in: attendanceStudentIds },
+        date: dateFilter
+      },
+      select: { studentId: true, date: true, status: true, session: true }
+    });
 
-      const students = enrollments.map(e => ({
-        ...e.student,
-        enrollmentId: e.id,
-        status: e.status
-      }));
-
-      // Get all attendance records for this date range (month/year)
-      // No academic year filter here — just look at actual attendance dates
-      const attendanceStudentIds = students.map(s => s.id);
-      const attendanceRecords = await prisma.attendance.findMany({
-        where: {
-          ...(schoolId ? { schoolId } : {}),
-          studentId: { in: attendanceStudentIds },
-          date: dateFilter
-        },
-        select: { studentId: true, date: true, status: true, session: true }
-      });
-
-      res.json({ students, attendanceRecords });
+    res.json({ students, attendanceRecords });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
