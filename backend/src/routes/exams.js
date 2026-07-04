@@ -909,6 +909,48 @@ router.get('/student/:studentId', authenticateToken, async (req, res) => {
         const grandTotal = subjectsData.reduce((s, d) => s + d.total, 0);
         const grandMax = subjectsData.reduce((s, d) => s + d.totalMarks, 0);
 
+        const average = grandMax > 0 ? parseFloat(((grandTotal / grandMax) * 100).toFixed(1)) : 0;
+        
+        const passThreshold = gradingScales.length > 0
+            ? Math.min(...gradingScales.filter(s => s.grade !== 'F').map(s => Number(s.minScore) || 50))
+            : 50;
+        const status = average >= passThreshold ? 'Pass' : 'Fail';
+
+        let classPosition = null;
+        let totalStudentsInClass = 0;
+        try {
+            const enrollmentForRank = effectiveYearId ? await prisma.enrollment.findFirst({
+                where: { studentId: { in: relatedIds }, academicYearId: effectiveYearId },
+                select: { classId: true, sectionId: true }
+            }) : null;
+
+            const rankClassId = enrollmentForRank?.classId || student.classId;
+
+            if (rankClassId && effectiveYearId) {
+                const classResults = await prisma.examResult.groupBy({
+                    by: ['studentId'],
+                    where: {
+                        exam: {
+                            classId: rankClassId,
+                            status: { in: allowedStatuses },
+                            OR: [
+                                { term: { academicYearId: effectiveYearId } },
+                                { termId: null }
+                            ]
+                        }
+                    },
+                    _sum: { marks: true }
+                });
+
+                totalStudentsInClass = classResults.length;
+                const sorted = classResults.sort((a, b) => (b._sum.marks || 0) - (a._sum.marks || 0));
+                const myEntry = sorted.findIndex(r => relatedIds.includes(r.studentId));
+                classPosition = myEntry >= 0 ? myEntry + 1 : null;
+            }
+        } catch (rankErr) {
+            console.error('[admin-student-results] Rank calculation error:', rankErr.message);
+        }
+
         return res.json({
             success: true,
             student: { id: student.id, name: student.user?.name, regId: student.student_id, className: displayClass || 'N/A', sectionName: displaySection || 'N/A' },
@@ -916,6 +958,10 @@ router.get('/student/:studentId', authenticateToken, async (req, res) => {
             results: subjectsData,
             grandTotal,
             grandMax,
+            average,
+            status,
+            classPosition,
+            totalStudentsInClass,
             grade: getGrade(grandTotal, grandMax, gradingScales),
             gradingScales,
             academicYearId: effectiveYearId,
