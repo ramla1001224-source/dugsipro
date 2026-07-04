@@ -392,8 +392,8 @@ router.post('/', authenticateToken, authorizeRoles('admin', 'teacher', 'accounta
 
           // Session Translation
           const sessionMap = {
-            'break1': 'bareega kowaad',
-            'break2': 'bareega labaad',
+            'break1': 'break 1aad',
+            'break2': 'break 2aad',
             'morning': 'subaxii',
             'afternoon': 'galabtii',
             'night': 'habeenkii'
