@@ -11,6 +11,7 @@ import '../screens/exams/exams_screen.dart';
 import '../screens/profile/profile_screen.dart';
 import '../services/ad_service.dart';
 import '../screens/students/add_student_screen.dart';
+import '../screens/students/import_students_screen.dart';
 import '../screens/students/edit_student_screen.dart';
 import '../screens/teachers/add_teacher_screen.dart';
 import '../screens/teachers/edit_teacher_screen.dart';
@@ -137,6 +138,7 @@ class AppRouter {
             builder: (context, state) => const StudentsScreen(),
             routes: [
               GoRoute(path: 'add', builder: (context, state) => const AddStudentScreen()),
+              GoRoute(path: 'import', builder: (context, state) => const ImportStudentsScreen()),
               GoRoute(
                 path: 'edit/:id',
                 builder: (context, state) => EditStudentScreen(studentId: state.pathParameters['id']!),

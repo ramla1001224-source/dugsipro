@@ -350,6 +350,17 @@ class _StudentsScreenState extends State<StudentsScreen> {
                                       'ADD NEW', AppTheme.primary, Colors.white,
                                       isSolid: true),
                                 ),
+                                SizedBox(width: 8.w),
+                                GestureDetector(
+                                  onTap: () async {
+                                    final res =
+                                        await context.push('/students/import');
+                                    if (res == true) _loadInitial();
+                                  },
+                                  child: _actionBtn(
+                                      'IMPORT EXCEL', const Color(0xFF059669), Colors.white,
+                                      isSolid: true),
+                                ),
                               ],
                             ),
                           ),

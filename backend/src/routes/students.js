@@ -416,14 +416,16 @@ router.post('/create', authenticateToken, authorizeRoles('admin', 'owner', 'supe
 // ==================== DOWNLOAD EXCEL TEMPLATE ====================
 router.get('/template', authenticateToken, authorizeRoles('admin', 'owner'), (req, res) => {
   const wb = XLSX.utils.book_new();
-  const headers = [['Name', 'Username', 'Password', 'Class', 'Phone', 'Address', 'Gender', 'Date of Birth']];
-  // Add example row
-  headers.push(['Ahmed Mohamed', 'ahmed123', 'pass1234', 'Grade 10A', '0612345678', 'Garowe', 'Male', '2008-05-15']);
+  // Student ID column is optional — if filled, system uses it; if empty, auto-generates
+  const headers = [['Student ID (Optional)', 'Name', 'Password', 'Class', 'Phone', 'Address', 'Gender', 'Date of Birth']];
+  // Add example rows: one with custom ID, one without (auto-generate)
+  headers.push(['STU-001', 'Ahmed Mohamed', 'pass1234', 'Grade 10A', '0612345678', 'Garowe', 'Male', '2008-05-15']);
+  headers.push(['', 'Fadumo Ali', 'pass5678', 'Grade 10A', '0623456789', 'Bosaso', 'Female', '2009-03-20']);
   const ws = XLSX.utils.aoa_to_sheet(headers);
 
   // Set column widths
   ws['!cols'] = [
-    { wch: 20 }, { wch: 15 }, { wch: 15 }, { wch: 12 },
+    { wch: 22 }, { wch: 20 }, { wch: 15 }, { wch: 12 },
     { wch: 15 }, { wch: 20 }, { wch: 10 }, { wch: 15 }
   ];
 
@@ -488,8 +490,12 @@ router.post('/import', authenticateToken, authorizeRoles('admin', 'owner'), requ
     // 1. Normalize Rows
     const rows = rawRows.map((row, index) => {
       const name = getValue(row, ['name', 'magaca', 'fullname', 'full name', 'student name', 'ardayga', 'magaca ardayga']);
-      const student_id = 'S' + Math.floor(100000 + Math.random() * 900000); // Unique-ish ID
+
+      // Use ID from Excel if provided, otherwise auto-generate
+      const rawExcelId = String(getValue(row, ['student id', 'student_id', 'id', 'studentid', 'ardayga id', 'arday id', 'no', 'number']) || '').trim();
+      const student_id = rawExcelId || ('S' + Math.floor(100000 + Math.random() * 900000));
       const username = student_id;
+
       let password = String(getValue(row, ['password', 'pass', 'pincode', 'sirta']) || '').trim();
 
       if (name && !password) {

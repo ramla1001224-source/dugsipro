@@ -752,6 +752,14 @@ export default function AdminStudents() {
                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                                     Download students_template.xlsx
                                 </button>
+                                <div className="ml-11 mt-3 bg-blue-50 border border-blue-100 rounded-xl px-4 py-3">
+                                    <p className="text-xs font-bold text-blue-700 mb-1">📋 Sida Excel-ka loo diyaariyaa:</p>
+                                    <ul className="text-xs text-blue-600 space-y-1 list-none">
+                                        <li>✅ <strong>Student ID (Optional)</strong> — Haddii ardayga ID leeyahay, ku qor; haddii kale, banaan ka daa oo system-ku auto-generate gareenayaa</li>
+                                        <li>✅ <strong>Name</strong> — Magaca ardayga (waajib ah)</li>
+                                        <li>✅ <strong>Password</strong> — Sirta; haddii banaan, default waa <code className="bg-blue-100 px-1 rounded">123123</code></li>
+                                    </ul>
+                                </div>
                             </div>
 
                             {/* Step 2: Select Class (Optional) */}
