@@ -549,13 +549,18 @@ router.post('/import', authenticateToken, authorizeRoles('admin', 'owner'), requ
     // 3. Process in Batches
     const validRows = [];
     rows.forEach(r => {
-      const normalizedReq = r.username.toLowerCase();
-      if (existingMap.has(normalizedReq)) {
-        const u = existingMap.get(normalizedReq);
-        results.errors.push({ row: r.rowNum, message: `Row ${r.rowNum}: Student ID '${r.username}' taken by ${u.name}` });
-      } else {
-        validRows.push(r);
+      let normalizedReq = r.username.toLowerCase();
+      
+      // If the ID is already taken, generate a new one automatically
+      while (existingMap.has(normalizedReq)) {
+        const newId = 'S' + Math.floor(100000 + Math.random() * 900000);
+        r.username = newId;
+        normalizedReq = newId.toLowerCase();
       }
+      
+      // Add to map so subsequent rows in the same Excel don't get the same generated ID
+      existingMap.set(normalizedReq, { username: r.username, name: r.name });
+      validRows.push(r);
     });
 
     const BATCH_SIZE = 20;
