@@ -233,12 +233,13 @@ export default function StudentHistory() {
                 s.bile_2 ?? s.monthly_2 ?? '-',
                 s.final ?? s.final_term ?? s.Final ?? '-',
                 `${sub.total} / ${sub.totalMarks}`,
+                Number.isFinite(sub.total) ? (sub.total / 2).toFixed(1).replace(/\.0$/, '') : '0',
                 getGrade(sub)
             ]
         })
         autoTable(doc, {
             startY: tableStartY,
-            head: [['Subject', 'Bile 1', 'Midterm', 'Bile 2', 'Final', 'Total', 'Grade']],
+            head: [['Subject', 'Bile 1', 'Midterm', 'Bile 2', 'Final', 'Total', 'Average', 'Grade']],
             body: examRows,
             theme: 'grid',
             headStyles: { fillColor: [30, 41, 59] } // Darker slate

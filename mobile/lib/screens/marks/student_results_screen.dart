@@ -660,6 +660,12 @@ class _StudentResultsScreenState extends State<StudentResultsScreen> {
     final bile2 = scores['bile_2']?.toString() ?? scores['monthly_2']?.toString() ?? '-';
     final finalTerm = scores['final_term']?.toString() ?? scores['final']?.toString() ?? '-';
 
+    // Celceliska: total / 2
+    final double celcelisk = (total is num) ? (total as num).toDouble() / 2.0 : 0.0;
+    final String celceliskStr = celcelisk == celcelisk.truncateToDouble()
+        ? celcelisk.toInt().toString()
+        : celcelisk.toStringAsFixed(1);
+
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
@@ -751,6 +757,7 @@ class _StudentResultsScreenState extends State<StudentResultsScreen> {
                       _buildScoreColumn('BILE 2', bile2),
                       _buildScoreColumn('FINAL', finalTerm),
                       _buildScoreColumn('TOTAL', '$total', isTotal: true),
+                      _buildScoreColumn('AVERAGE', celceliskStr, isAverage: true),
                     ],
                   ),
                 ),
@@ -762,13 +769,25 @@ class _StudentResultsScreenState extends State<StudentResultsScreen> {
     );
   }
 
-  Widget _buildScoreColumn(String label, String val, {bool isTotal = false}) {
+  Widget _buildScoreColumn(String label, String val, {bool isTotal = false, bool isAverage = false}) {
+    final Color labelColor = isAverage
+        ? const Color(0xFF10B981)
+        : isTotal
+            ? const Color(0xFF3B82F6)
+            : const Color(0xFF64748B);
+    final Color valueColor = isAverage
+        ? const Color(0xFF10B981)
+        : isTotal
+            ? const Color(0xFF3B82F6)
+            : Colors.white;
+    final double fontSize = (isTotal || isAverage) ? 16 : 14;
+
     return Column(
       children: [
         Text(
           label,
           style: TextStyle(
-            color: isTotal ? const Color(0xFF3B82F6) : const Color(0xFF64748B),
+            color: labelColor,
             fontSize: 9.sp,
             fontWeight: FontWeight.bold,
             letterSpacing: 0.5,
@@ -778,8 +797,8 @@ class _StudentResultsScreenState extends State<StudentResultsScreen> {
         Text(
           val,
           style: TextStyle(
-            color: isTotal ? const Color(0xFF3B82F6) : Colors.white,
-            fontSize: isTotal ? 16 : 14,
+            color: valueColor,
+            fontSize: fontSize,
             fontWeight: FontWeight.w900,
           ),
         ),

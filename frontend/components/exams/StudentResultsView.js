@@ -168,6 +168,7 @@ export default function StudentResultsView({ data, years = [], selectedYearId = 
                             <th className="p-5 bg-slate-50/50 text-center">Final Term</th>
                             <th className="p-5 bg-indigo-50/30 text-indigo-600 text-center hidden md:table-cell">Other</th>
                             <th className="p-5 bg-slate-50 text-right">Total</th>
+                            <th className="p-5 bg-slate-50 text-right">Average</th>
                             <th className="p-5 bg-slate-50 text-right">Grade</th>
                         </tr>
                     </thead>
@@ -203,6 +204,9 @@ export default function StudentResultsView({ data, years = [], selectedYearId = 
                                     <td className="p-5 font-black text-slate-900 text-right text-base bg-slate-50/20 group-hover:bg-indigo-50/20 transition-colors">
                                         {sub.total} 
                                         <span className="text-[10px] text-slate-300 ml-1 font-bold">/ {sub.totalMarks}</span>
+                                    </td>
+                                    <td className="p-5 font-black text-emerald-600 text-right text-base bg-emerald-50/10 transition-colors">
+                                        {Number.isFinite(sub.total) ? (sub.total / 2).toFixed(1).replace(/\.0$/, '') : 0}
                                     </td>
                                     <td className="p-5 text-right">
                                         <span className={`px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider ${getGradeColor(sub.total, sub.totalMarks)}`}>

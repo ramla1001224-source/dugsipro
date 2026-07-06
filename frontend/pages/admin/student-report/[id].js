@@ -136,6 +136,7 @@ export default function StudentReport() {
                                             <th className="px-6 py-4">Subject Name</th>
                                             {milestones.map(m => <th key={m.key} className="px-2 py-4 text-center">{m.label}</th>)}
                                             <th className="px-6 py-4 text-center bg-slate-800">Total</th>
+                                            <th className="px-6 py-4 text-center bg-emerald-700 text-white">Average</th>
                                             <th className="px-6 py-4 text-center bg-indigo-700">Grade</th>
                                         </tr>
                                     </thead>
@@ -151,6 +152,9 @@ export default function StudentReport() {
                                                 <td className="px-6 py-4 text-center font-black text-indigo-600 bg-indigo-50/50">
                                                     {sub.total}
                                                 </td>
+                                                <td className="px-6 py-4 text-center font-black text-emerald-600 bg-emerald-50/30">
+                                                    {Number.isFinite(sub.total) ? (sub.total / 2).toFixed(1).replace(/\.0$/, '') : '0'}
+                                                </td>
                                                 <td className="px-6 py-4 text-center font-black text-indigo-700 bg-indigo-100/30">
                                                     {sub.grade || '-'}
                                                 </td>
@@ -160,7 +164,7 @@ export default function StudentReport() {
                                     <tfoot>
                                         <tr className="bg-slate-50 border-t-2 border-slate-100">
                                             <td colSpan={5} className="px-6 py-6 text-right font-black text-slate-400 uppercase tracking-widest text-xs">Over-all Achievement</td>
-                                            <td className="px-6 py-6 text-center font-black text-3xl text-indigo-600">
+                                            <td colSpan={2} className="px-6 py-6 text-center font-black text-3xl text-indigo-600">
                                                 {grandTotal}
                                             </td>
                                             <td className="px-6 py-6 text-center font-black text-3xl text-indigo-700">
