@@ -139,7 +139,7 @@ export default function StudentResultsView({ data, years = [], selectedYearId = 
                 </div>
                 <div className="flex flex-col items-center justify-center py-5 px-4 border-r border-gray-100">
                     <div className="text-[9px] font-black uppercase tracking-widest text-gray-400 mb-1.5">Celceliska</div>
-                    <div className="text-xl font-black text-indigo-600">{displayAverage}%</div>
+                    <div className="text-xl font-black text-emerald-600">{Number.isFinite(grandTotal) ? (grandTotal / 2).toFixed(1).replace(/\.0$/, '') : 0}</div>
                 </div>
                 <div className="flex flex-col items-center justify-center py-5 px-4 border-r border-gray-100">
                     <div className="text-[9px] font-black uppercase tracking-widest text-gray-400 mb-1.5">Status</div>
