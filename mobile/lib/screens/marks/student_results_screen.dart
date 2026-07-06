@@ -577,7 +577,7 @@ class _StudentResultsScreenState extends State<StudentResultsScreen> {
                     child: Row(
                       children: [
                         _buildStatCell('Total', '$grandTotal/$grandMax', Colors.white),
-                        _buildStatCell('Average', '$displayAverage%', const Color(0xFF818CF8)),
+                        _buildStatCell('Celceliska', _celceliskaStr(grandTotal), const Color(0xFF10B981)),
                         _buildStatCell(
                           'Status',
                           status,
@@ -602,6 +602,12 @@ class _StudentResultsScreenState extends State<StudentResultsScreen> {
         );
       },
     );
+  }
+
+  String _celceliskaStr(dynamic grandTotal) {
+    if (grandTotal is! num) return '0';
+    final double cel = grandTotal.toDouble() / 2.0;
+    return cel == cel.truncateToDouble() ? cel.toInt().toString() : cel.toStringAsFixed(1);
   }
 
   Widget _buildStatCell(String label, String value, Color valueColor, {bool highlight = false, bool isPass = true}) {
@@ -660,11 +666,7 @@ class _StudentResultsScreenState extends State<StudentResultsScreen> {
     final bile2 = scores['bile_2']?.toString() ?? scores['monthly_2']?.toString() ?? '-';
     final finalTerm = scores['final_term']?.toString() ?? scores['final']?.toString() ?? '-';
 
-    // Celceliska: total / 2
-    final double celcelisk = (total is num) ? (total as num).toDouble() / 2.0 : 0.0;
-    final String celceliskStr = celcelisk == celcelisk.truncateToDouble()
-        ? celcelisk.toInt().toString()
-        : celcelisk.toStringAsFixed(1);
+
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -757,7 +759,6 @@ class _StudentResultsScreenState extends State<StudentResultsScreen> {
                       _buildScoreColumn('BILE 2', bile2),
                       _buildScoreColumn('FINAL', finalTerm),
                       _buildScoreColumn('TOTAL', '$total', isTotal: true),
-                      _buildScoreColumn('CELCELISKA', celceliskStr, isAverage: true),
                     ],
                   ),
                 ),

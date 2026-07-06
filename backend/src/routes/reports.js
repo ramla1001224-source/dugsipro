@@ -248,9 +248,8 @@ router.get('/student-report/:studentId', authenticateToken, async (req, res) => 
     const colB2 = 215;
     const colB3 = 255;
     const colFinal = 295;
-    const colTotal = 345;
-    const colAverage = 405;
-    const colGrade = 495;
+    const colTotal = 365;
+    const colGrade = 475;
 
     // Header Background
     doc.rect(40, tableTop - 5, 515, 25).fill('#f1f5f9');
@@ -261,7 +260,6 @@ router.get('/student-report/:studentId', authenticateToken, async (req, res) => 
     doc.text('B3', colB3, tableTop);
     doc.text('FINAL', colFinal, tableTop);
     doc.text('TOTAL', colTotal, tableTop);
-    doc.text('CELCELISKA', colAverage, tableTop);
     doc.text('GD', colGrade, tableTop);
 
     let currentY = tableTop + 25;
@@ -286,9 +284,6 @@ router.get('/student-report/:studentId', authenticateToken, async (req, res) => 
       doc.text(sr.bile3 !== null ? sr.bile3 : '-', colB3, currentY);
       doc.text(sr.final !== null ? sr.final : '-', colFinal, currentY);
       doc.font('Helvetica-Bold').text(`${sr.total}/${sr.totalMax}`, colTotal, currentY);
-
-      const average = Number.isFinite(sr.total) ? (sr.total / 2).toFixed(1).replace(/\.0$/, '') : '0';
-      doc.fillColor('#059669').text(average, colAverage, currentY);
       
       // Percentage-based Grade Logic
       const grade = calculateGrade(sr.total, sr.totalMax);
@@ -313,6 +308,8 @@ router.get('/student-report/:studentId', authenticateToken, async (req, res) => 
     currentY += 10;
     doc.fillColor('#1e293b').font('Helvetica-Bold').fontSize(11);
     doc.text(`WADARTA GUUD (GRAND TOTAL): `, colSubject, currentY, { continued: true }).text(`${grandTotal}/${grandMax}`);
+    currentY += 15;
+    doc.text(`CELCELISKA: ${Number.isFinite(grandTotal) ? (grandTotal / 2).toFixed(1).replace(/\.0$/, '') : 0}`, colSubject, currentY);
 
     // Calculate global percentage based on actual marks instead of arbitrary count
     let avg = 0;

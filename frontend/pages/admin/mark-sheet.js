@@ -85,14 +85,18 @@ export default function MarkSheet() {
                         <td colspan="${5 + data.subjects.length}" class="title-row">${schoolInfo?.name || 'Class Mark Sheet'}</td>
                     </tr>
                     <tr>
-                        <td colspan="${5 + data.subjects.length}" class="info-row">Class: ${classNameStr} | Session: ${selectedYearId ? academicYears.find(y => y.id === selectedYearId)?.name : ''}</td>
+                        <td colspan="${4 + data.subjects.length}" class="title-row">${schoolInfo?.name || 'Class Mark Sheet'}</td>
+                    </tr>
+                    <tr>
+                        <td colspan="${4 + data.subjects.length}" class="info-row">Class: ${classNameStr} | Session: ${selectedYearId ? academicYears.find(y => y.id === selectedYearId)?.name : ''}</td>
                     </tr>
                     <tr>
                         <th>Pos</th>
                         <th>Student Name</th>
                         <th>Reg ID</th>
-                        ${data.subjects.map(sub => `<th>${sub.name} (TOT)</th><th>${sub.name} (CEL)</th>`).join('')}
+                        ${data.subjects.map(sub => `<th>${sub.name} (TOT)</th>`).join('')}
                         <th>Grand Total</th>
+                        <th>Celceliska</th>
                         <th>Grade</th>
                     </tr>
         `;
@@ -105,10 +109,10 @@ export default function MarkSheet() {
                     <td>'${student.studentRegId || ''}</td>
                     ${data.subjects.map(sub => {
                         const subData = student.subjects[sub.id] || { total: 0 };
-                        const cel = Number.isFinite(subData.total) ? (subData.total / 2).toFixed(1).replace(/\.0$/, '') : 0;
-                        return `<td style="text-align: center;">${subData.total}</td><td style="text-align: center;">${cel}</td>`;
+                        return `<td style="text-align: center;">${subData.total}</td>`;
                     }).join('')}
                     <td style="text-align: center; font-weight: bold;">${student.displayTotal}</td>
+                    <td style="text-align: center; font-weight: bold;">${Number.isFinite(student.displayTotal) ? (student.displayTotal / 2).toFixed(1).replace(/\.0$/, '') : 0}</td>
                     <td style="text-align: center; font-weight: bold;">${student.displayGrade}</td>
                 </tr>
             `;
@@ -159,8 +163,9 @@ export default function MarkSheet() {
                             <th style="width: 5%">Pos</th>
                             <th>Student Name</th>
                             <th>Reg ID</th>
-                            ${data.subjects.map(sub => `<th>${sub.name} (TOT)</th><th>${sub.name} (CEL)</th>`).join('')}
-                            <th>Total</th>
+                            ${data.subjects.map(sub => `<th>${sub.name}</th>`).join('')}
+                            <th>Grand Total</th>
+                            <th>Celceliska</th>
                             <th>Grade</th>
                         </tr>
                     </thead>
@@ -175,10 +180,10 @@ export default function MarkSheet() {
                     <td>${student.studentRegId || ''}</td>
                     ${data.subjects.map(sub => {
                         const subData = student.subjects[sub.id] || { total: 0 };
-                        const cel = Number.isFinite(subData.total) ? (subData.total / 2).toFixed(1).replace(/\.0$/, '') : 0;
-                        return `<td style="text-align: center;">${subData.total}</td><td style="text-align: center;">${cel}</td>`;
+                        return `<td style="text-align: center;">${subData.total}</td>`;
                     }).join('')}
                     <td style="text-align: center;"><b>${student.displayTotal}</b></td>
+                    <td style="text-align: center;"><b>${Number.isFinite(student.displayTotal) ? (student.displayTotal / 2).toFixed(1).replace(/\.0$/, '') : 0}</b></td>
                     <td style="text-align: center;"><b>${student.displayGrade}</b></td>
                 </tr>
             `;
@@ -434,11 +439,11 @@ export default function MarkSheet() {
                                                     <span key={m.key}>{m.label}</span>
                                                 ))}
                                                 <span className="text-white">TOT</span>
-                                                <span className="text-emerald-400">CEL</span>
                                             </div>
                                         </th>
                                     ))}
                                     <th className="px-6 py-4 text-center bg-slate-800">Grand Total</th>
+                                    <th className="px-6 py-4 text-center bg-emerald-700 text-white">Celceliska</th>
                                     <th className="px-6 py-4 text-center bg-indigo-700">Grade</th>
                                 </tr>
                             </thead>
@@ -474,15 +479,15 @@ export default function MarkSheet() {
                                                             {subData.total}
                                                             <span className="ml-1 text-[8px] text-indigo-400">{subData.grade}</span>
                                                         </span>
-                                                        <span className="font-black text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100 min-w-[24px] text-center">
-                                                            {Number.isFinite(subData.total) ? (subData.total / 2).toFixed(1).replace(/\.0$/, '') : 0}
-                                                        </span>
                                                     </div>
                                                 </td>
                                             )
                                         })}
                                         <td className="px-6 py-4 text-center bg-indigo-600 text-white font-black text-lg print:text-base print:bg-white print:text-indigo-700 print:border-l print:border-indigo-100">
                                             {student.displayTotal}
+                                        </td>
+                                        <td className="px-6 py-4 text-center bg-emerald-600 text-white font-black text-lg print:text-base print:bg-white print:text-emerald-700">
+                                            {Number.isFinite(student.displayTotal) ? (student.displayTotal / 2).toFixed(1).replace(/\.0$/, '') : 0}
                                         </td>
                                         <td className="px-6 py-4 text-center bg-indigo-700 text-white font-black text-lg print:text-base print:bg-white print:text-indigo-800">
                                             {student.displayGrade}

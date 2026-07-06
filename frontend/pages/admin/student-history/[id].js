@@ -233,13 +233,12 @@ export default function StudentHistory() {
                 s.bile_2 ?? s.monthly_2 ?? '-',
                 s.final ?? s.final_term ?? s.Final ?? '-',
                 `${sub.total} / ${sub.totalMarks}`,
-                Number.isFinite(sub.total) ? (sub.total / 2).toFixed(1).replace(/\.0$/, '') : '0',
                 getGrade(sub)
             ]
         })
         autoTable(doc, {
             startY: tableStartY,
-            head: [['Subject', 'Bile 1', 'Midterm', 'Bile 2', 'Final', 'Total', 'Celceliska', 'Grade']],
+            head: [['Subject', 'Bile 1', 'Midterm', 'Bile 2', 'Final', 'Total', 'Grade']],
             body: examRows,
             theme: 'grid',
             headStyles: { fillColor: [30, 41, 59] } // Darker slate
@@ -256,6 +255,8 @@ export default function StudentHistory() {
         doc.setFontSize(11);
         doc.setFont(undefined, 'bold');
         doc.text(`Wadarta Guud (Grand Total): ${gTotal} / ${gMax}`, 190, lastY, { align: 'right' });
+        lastY += 7;
+        doc.text(`Celceliska: ${Number.isFinite(gTotal) ? (gTotal / 2).toFixed(1).replace(/\.0$/, '') : 0}`, 190, lastY, { align: 'right' });
         lastY += 7;
         doc.text(`Aggregate Grade: ${aggGrade}`, 190, lastY, { align: 'right' });
         lastY += 10;
