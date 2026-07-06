@@ -91,7 +91,7 @@ export default function MarkSheet() {
                         <th>Pos</th>
                         <th>Student Name</th>
                         <th>Reg ID</th>
-                        ${data.subjects.map(sub => `<th>${sub.name} (TOT)</th>`).join('')}
+                        ${data.subjects.map(sub => `<th>${sub.name} (TOT)</th><th>${sub.name} (CEL)</th>`).join('')}
                         <th>Grand Total</th>
                         <th>Grade</th>
                     </tr>
@@ -105,7 +105,8 @@ export default function MarkSheet() {
                     <td>'${student.studentRegId || ''}</td>
                     ${data.subjects.map(sub => {
                         const subData = student.subjects[sub.id] || { total: 0 };
-                        return `<td style="text-align: center;">${subData.total}</td>`;
+                        const cel = Number.isFinite(subData.total) ? (subData.total / 2).toFixed(1).replace(/\.0$/, '') : 0;
+                        return `<td style="text-align: center;">${subData.total}</td><td style="text-align: center;">${cel}</td>`;
                     }).join('')}
                     <td style="text-align: center; font-weight: bold;">${student.displayTotal}</td>
                     <td style="text-align: center; font-weight: bold;">${student.displayGrade}</td>
@@ -158,7 +159,7 @@ export default function MarkSheet() {
                             <th style="width: 5%">Pos</th>
                             <th>Student Name</th>
                             <th>Reg ID</th>
-                            ${data.subjects.map(sub => `<th>${sub.name}</th>`).join('')}
+                            ${data.subjects.map(sub => `<th>${sub.name} (TOT)</th><th>${sub.name} (CEL)</th>`).join('')}
                             <th>Total</th>
                             <th>Grade</th>
                         </tr>
@@ -174,7 +175,8 @@ export default function MarkSheet() {
                     <td>${student.studentRegId || ''}</td>
                     ${data.subjects.map(sub => {
                         const subData = student.subjects[sub.id] || { total: 0 };
-                        return `<td style="text-align: center;">${subData.total}</td>`;
+                        const cel = Number.isFinite(subData.total) ? (subData.total / 2).toFixed(1).replace(/\.0$/, '') : 0;
+                        return `<td style="text-align: center;">${subData.total}</td><td style="text-align: center;">${cel}</td>`;
                     }).join('')}
                     <td style="text-align: center;"><b>${student.displayTotal}</b></td>
                     <td style="text-align: center;"><b>${student.displayGrade}</b></td>
@@ -432,6 +434,7 @@ export default function MarkSheet() {
                                                     <span key={m.key}>{m.label}</span>
                                                 ))}
                                                 <span className="text-white">TOT</span>
+                                                <span className="text-emerald-400">CEL</span>
                                             </div>
                                         </th>
                                     ))}
@@ -470,6 +473,9 @@ export default function MarkSheet() {
                                                         <span className="font-black text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100 min-w-[24px] text-center">
                                                             {subData.total}
                                                             <span className="ml-1 text-[8px] text-indigo-400">{subData.grade}</span>
+                                                        </span>
+                                                        <span className="font-black text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100 min-w-[24px] text-center">
+                                                            {Number.isFinite(subData.total) ? (subData.total / 2).toFixed(1).replace(/\.0$/, '') : 0}
                                                         </span>
                                                     </div>
                                                 </td>

@@ -243,13 +243,14 @@ router.get('/student-report/:studentId', authenticateToken, async (req, res) => 
 
     // --- Table Rendering ---
     const tableTop = doc.y;
-    const colSubject = 50;
-    const colB1 = 180;
-    const colB2 = 230;
-    const colB3 = 280;
-    const colFinal = 330;
-    const colTotal = 430;
-    const colGrade = 500;
+    const colSubject = 45;
+    const colB1 = 175;
+    const colB2 = 215;
+    const colB3 = 255;
+    const colFinal = 295;
+    const colTotal = 345;
+    const colAverage = 405;
+    const colGrade = 495;
 
     // Header Background
     doc.rect(40, tableTop - 5, 515, 25).fill('#f1f5f9');
@@ -260,6 +261,7 @@ router.get('/student-report/:studentId', authenticateToken, async (req, res) => 
     doc.text('B3', colB3, tableTop);
     doc.text('FINAL', colFinal, tableTop);
     doc.text('TOTAL', colTotal, tableTop);
+    doc.text('CELCELISKA', colAverage, tableTop);
     doc.text('GD', colGrade, tableTop);
 
     let currentY = tableTop + 25;
@@ -285,9 +287,12 @@ router.get('/student-report/:studentId', authenticateToken, async (req, res) => 
       doc.text(sr.final !== null ? sr.final : '-', colFinal, currentY);
       doc.font('Helvetica-Bold').text(`${sr.total}/${sr.totalMax}`, colTotal, currentY);
 
+      const average = Number.isFinite(sr.total) ? (sr.total / 2).toFixed(1).replace(/\.0$/, '') : '0';
+      doc.fillColor('#059669').text(average, colAverage, currentY);
+      
       // Percentage-based Grade Logic
       const grade = calculateGrade(sr.total, sr.totalMax);
-      doc.text(grade, colGrade, currentY);
+      doc.fillColor('#000').text(grade, colGrade, currentY);
       doc.font('Helvetica');
 
       grandTotal += sr.total;
