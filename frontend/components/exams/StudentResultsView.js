@@ -168,7 +168,7 @@ export default function StudentResultsView({ data, years = [], selectedYearId = 
                             <th className="p-5 bg-slate-50/50 text-center">Final Term</th>
                             <th className="p-5 bg-indigo-50/30 text-indigo-600 text-center hidden md:table-cell">Other</th>
                             <th className="p-5 bg-slate-50 text-right">Total</th>
-                            <th className="p-5 bg-slate-50 text-right">Average</th>
+                            <th className="p-5 bg-slate-50 text-right">Celceliska</th>
                             <th className="p-5 bg-slate-50 text-right">Grade</th>
                         </tr>
                     </thead>

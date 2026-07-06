@@ -757,7 +757,7 @@ class _StudentResultsScreenState extends State<StudentResultsScreen> {
                       _buildScoreColumn('BILE 2', bile2),
                       _buildScoreColumn('FINAL', finalTerm),
                       _buildScoreColumn('TOTAL', '$total', isTotal: true),
-                      _buildScoreColumn('AVERAGE', celceliskStr, isAverage: true),
+                      _buildScoreColumn('CELCELISKA', celceliskStr, isAverage: true),
                     ],
                   ),
                 ),

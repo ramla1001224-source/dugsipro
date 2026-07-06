@@ -239,7 +239,7 @@ export default function StudentHistory() {
         })
         autoTable(doc, {
             startY: tableStartY,
-            head: [['Subject', 'Bile 1', 'Midterm', 'Bile 2', 'Final', 'Total', 'Average', 'Grade']],
+            head: [['Subject', 'Bile 1', 'Midterm', 'Bile 2', 'Final', 'Total', 'Celceliska', 'Grade']],
             body: examRows,
             theme: 'grid',
             headStyles: { fillColor: [30, 41, 59] } // Darker slate

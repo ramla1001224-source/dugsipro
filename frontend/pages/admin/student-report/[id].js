@@ -136,7 +136,7 @@ export default function StudentReport() {
                                             <th className="px-6 py-4">Subject Name</th>
                                             {milestones.map(m => <th key={m.key} className="px-2 py-4 text-center">{m.label}</th>)}
                                             <th className="px-6 py-4 text-center bg-slate-800">Total</th>
-                                            <th className="px-6 py-4 text-center bg-emerald-700 text-white">Average</th>
+                                            <th className="px-6 py-4 text-center bg-emerald-700 text-white">Celceliska</th>
                                             <th className="px-6 py-4 text-center bg-indigo-700">Grade</th>
                                         </tr>
                                     </thead>
