@@ -92,8 +92,8 @@ export default function MarkSheet() {
                     </tr>
                     <tr>
                         <th>Pos</th>
-                        <th>Student Name</th>
                         <th>Reg ID</th>
+                        <th>Student Name</th>
                         ${data.subjects.map(sub => `<th>${sub.name} (TOT)</th>`).join('')}
                         <th>Grand Total</th>
                         <th>Celceliska</th>
@@ -105,8 +105,8 @@ export default function MarkSheet() {
             html += `
                 <tr>
                     <td style="text-align: center;">${student.position}</td>
+                    <td>${student.studentRegId || ''}</td>
                     <td>${student.studentName}</td>
-                    <td>'${student.studentRegId || ''}</td>
                     ${data.subjects.map(sub => {
                         const subData = student.subjects[sub.id] || { total: 0 };
                         return `<td style="text-align: center;">${subData.total}</td>`;
@@ -160,9 +160,10 @@ export default function MarkSheet() {
                 <table>
                     <thead>
                         <tr>
+                            <th style="width: 5%">#</th>
                             <th style="width: 5%">Pos</th>
-                            <th>Student Name</th>
                             <th>Reg ID</th>
+                            <th>Student Name</th>
                             ${data.subjects.map(sub => `<th>${sub.name}</th>`).join('')}
                             <th>Grand Total</th>
                             <th>Celceliska</th>
@@ -172,12 +173,13 @@ export default function MarkSheet() {
                     <tbody>
         `;
 
-        rankedMarkSheet.forEach((student) => {
+        rankedMarkSheet.forEach((student, idx) => {
             html += `
                 <tr>
+                    <td style="text-align: center;"><b>${idx + 1}</b></td>
                     <td style="text-align: center;"><b>${student.position}</b></td>
-                    <td><b>${student.studentName}</b></td>
                     <td>${student.studentRegId || ''}</td>
+                    <td><b>${student.studentName}</b></td>
                     ${data.subjects.map(sub => {
                         const subData = student.subjects[sub.id] || { total: 0 };
                         return `<td style="text-align: center;">${subData.total}</td>`;
@@ -286,7 +288,7 @@ export default function MarkSheet() {
     const sortedMarkSheet = [...processedMarkSheet].sort((a, b) => b.displayTotal - a.displayTotal)
     const rankedMarkSheet = processedMarkSheet.map(student => ({
         ...student,
-        position: sortedMarkSheet.findIndex(s => s.studentId === student.id) + 1
+        position: sortedMarkSheet.findIndex(s => s.studentId === student.studentId) + 1
     }))
 
     const [schoolInfo, setSchoolInfo] = useState(null)
@@ -430,6 +432,7 @@ export default function MarkSheet() {
                                 <tr className="bg-slate-900 text-white uppercase font-bold tracking-widest text-[10px]">
                                     <th className="px-3 py-4 border-r border-slate-800 text-center min-w-[40px]">#</th>
                                     <th className="px-4 py-4 border-r border-slate-800 text-center min-w-[30px]">Pos</th>
+                                    <th className="px-6 py-4 border-r border-slate-800 text-center min-w-[80px]">Reg ID</th>
                                     <th className="px-6 py-4 border-r border-slate-800 sticky left-0 bg-slate-900 z-10 min-w-[180px]">Student Name</th>
                                     {data.subjects.map(sub => (
                                         <th key={sub.id} className="px-2 py-4 text-center border-r border-slate-800 min-w-[110px]">
@@ -456,6 +459,9 @@ export default function MarkSheet() {
                                         <td className="px-4 py-4 font-black text-slate-500 text-center border-r border-gray-100">
                                             #{student.position}
                                         </td>
+                                        <td className="px-6 py-4 font-bold text-slate-500 text-center border-r border-gray-100">
+                                            {student.studentRegId}
+                                        </td>
                                         <td className="px-6 py-4 font-bold text-slate-700 border-r border-gray-100 sticky left-0 bg-white z-10 group-hover:bg-gray-50">
                                             <button
                                                 onClick={() => router.push(`/admin/student-report/${student.studentId}`)}
@@ -463,7 +469,6 @@ export default function MarkSheet() {
                                             >
                                                 {student.studentName}
                                             </button>
-                                            <div className="text-[9px] text-gray-400 font-medium">Reg: {student.studentRegId}</div>
                                         </td>
                                         {data.subjects.map(sub => {
                                             const subData = student.subjects[sub.id] || { scores: {}, total: 0 }
