@@ -286,10 +286,16 @@ export default function MarkSheet() {
     })
 
     const sortedMarkSheet = [...processedMarkSheet].sort((a, b) => b.displayTotal - a.displayTotal)
-    const rankedMarkSheet = sortedMarkSheet.map((student, index) => ({
-        ...student,
-        position: index + 1
-    }))
+    let currentRank = 1;
+    const rankedMarkSheet = sortedMarkSheet.map((student, index) => {
+        if (index > 0 && student.displayTotal < sortedMarkSheet[index - 1].displayTotal) {
+            currentRank++;
+        }
+        return {
+            ...student,
+            position: currentRank
+        }
+    })
 
     const [schoolInfo, setSchoolInfo] = useState(null)
     useEffect(() => {
