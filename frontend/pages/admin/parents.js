@@ -22,6 +22,7 @@ export default function AdminParents() {
     const [importing, setImporting] = useState(false)
     const [importResult, setImportResult] = useState(null)
     const [dragOver, setDragOver] = useState(false)
+    const [searchQuery, setSearchQuery] = useState('')
     const fileInputRef = useRef(null)
 
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4001'
@@ -209,6 +210,24 @@ export default function AdminParents() {
                 </div>
             </div>
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                {/* Search Bar */}
+                <div className="p-4 border-b border-gray-100">
+                    <div className="relative">
+                        <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                        <input
+                            type="text"
+                            placeholder="Raadi waalidka magaca, telefoonka ama carruurta..."
+                            value={searchQuery}
+                            onChange={e => setSearchQuery(e.target.value)}
+                            className="w-full pl-11 pr-4 py-3 rounded-xl border border-gray-200 focus:ring-2 ring-pink-400 outline-none text-sm font-medium text-slate-700 placeholder:text-gray-400 bg-gray-50 focus:bg-white transition-all"
+                        />
+                        {searchQuery && (
+                            <button onClick={() => setSearchQuery('')} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                            </button>
+                        )}
+                    </div>
+                </div>
                 <div className="overflow-x-auto w-full">
                     <table className="w-full text-left min-w-max">
                     <thead><tr className="bg-gray-50 text-gray-400 text-[10px] uppercase font-bold tracking-[0.2em]"><th className="px-6 py-4">Magaca</th><th className="px-6 py-4">Telefoonka</th><th className="px-6 py-4">Shaqada</th><th className="px-6 py-4">Carruurta</th><th className="px-6 py-4">Waxqabad</th></tr></thead>
@@ -228,7 +247,23 @@ export default function AdminParents() {
                                     No parents found
                                 </td>
                             </tr>
-                        ) : parents.map(p => (
+                        ) : (() => {
+                            const filtered = parents.filter(p => {
+                                const q = searchQuery.toLowerCase();
+                                if (!q) return true;
+                                const name = p.user?.name?.toLowerCase() || '';
+                                const phone = p.phone?.toLowerCase() || '';
+                                const occ = p.occupation?.toLowerCase() || '';
+                                const children = p.Children?.map(c => `${c.student?.user?.name || ''} ${c.student?.student_id || ''}`).join(' ').toLowerCase() || '';
+                                return name.includes(q) || phone.includes(q) || occ.includes(q) || children.includes(q);
+                            });
+                            return filtered.length === 0 ? (
+                                <tr>
+                                    <td colSpan="5" className="px-6 py-12 text-center text-gray-400 font-bold uppercase tracking-widest text-xs">
+                                        Waalid lama helin: &quot;{searchQuery}&quot;
+                                    </td>
+                                </tr>
+                            ) : filtered.map(p => (
                             <tr key={p.id} className="hover:bg-gray-50/50">
                                 <td className="px-6 py-4 font-bold text-slate-700">{p.user?.name}</td>
                                 <td className="px-6 py-4 text-sm text-gray-500">{p.phone || '-'}</td>
@@ -253,7 +288,8 @@ export default function AdminParents() {
                                     </div>
                                 </td>
                             </tr>
-                        ))}
+                            ));
+                        })()}
                     </tbody>
                 </table>
 </div>
