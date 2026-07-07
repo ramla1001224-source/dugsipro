@@ -428,7 +428,7 @@ router.post('/', authenticateToken, authorizeRoles('admin', 'teacher', 'accounta
 
           for (const studentInfo of studentsInfo) {
             const parent = studentInfo?.Parents?.[0]?.parent;
-            const parentPhone = parent?.user?.phone || parent?.phone;
+            const parentPhone = parent?.user?.phone || parent?.phone || studentInfo?.parentPhone;
             const studentName = studentInfo?.user?.name || 'Ardayga';
 
             if (parentPhone) {

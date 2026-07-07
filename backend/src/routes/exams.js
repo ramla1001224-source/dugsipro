@@ -1553,7 +1553,7 @@ router.patch('/:id/status', authenticateToken, authorizeRoles('admin', 'teacher'
                 const smsJobs = [];
                 for (const resItem of results) {
                     const parent = resItem.student?.Parents?.[0]?.parent;
-                    const parentPhone = parent?.user?.phone || parent?.phone;
+                    const parentPhone = parent?.user?.phone || parent?.phone || resItem.student?.parentPhone;
                     const studentName = resItem.student?.user?.name || 'Ardayga';
                     // Abbreviate subject name to first 4 characters
                     const fullSubjectName = updated.subject?.name || 'Maaddada';
@@ -2148,7 +2148,7 @@ router.post('/send-bulk-sms', authenticateToken, authorizeRoles('admin', 'super_
         for (const r of results) {
             const studentId = r.studentId;
             if (!studentMap.has(studentId)) {
-                const parentPhone = r.student?.Parents?.[0]?.parent?.phone;
+                const parentPhone = r.student?.Parents?.[0]?.parent?.phone || r.student?.parentPhone;
                 studentMap.set(studentId, {
                     studentName: r.student?.user?.name || "Ardayga",
                     parentPhone: parentPhone,
@@ -2304,7 +2304,7 @@ router.post('/:examId/send-sms', authenticateToken, authorizeRoles('admin', 'sup
         for (const r of results) {
             const student = r.student;
             const parentRelation = student?.Parents?.[0];
-            const parentPhone = parentRelation?.parent?.phone;
+            const parentPhone = parentRelation?.parent?.phone || student?.parentPhone;
 
             if (parentPhone) {
                 const studentName = student?.user?.name || "Ardaygaaga";

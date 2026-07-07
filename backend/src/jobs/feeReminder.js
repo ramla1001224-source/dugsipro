@@ -53,7 +53,7 @@ const startFeeReminderJob = () => {
 
                 // Attempt to get the parent's phone number
                 const parentStudentRelation = student.Parents && student.Parents.length > 0 ? student.Parents[0] : null;
-                const parentPhone = parentStudentRelation && parentStudentRelation.parent ? parentStudentRelation.parent.phone : null;
+                const parentPhone = (parentStudentRelation && parentStudentRelation.parent ? parentStudentRelation.parent.phone : null) || student.parentPhone;
 
                 if (parentPhone) {
                     const studentName = student.user?.name || "Ardaygaaga";
