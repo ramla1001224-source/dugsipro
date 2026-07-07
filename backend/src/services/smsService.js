@@ -57,7 +57,14 @@ const sendSMS = async (phoneNumber, message, options = {}) => {
             try {
                 // Formatting payload based on provider standards
                 // Ensure phone number is clean (remove +, spaces, etc)
-                const cleanPhone = phoneNumber.replace(/\D/g, '');
+                let cleanPhone = phoneNumber.replace(/\D/g, '');
+                
+                // Auto-format for Somalia (+252) if missing
+                if (cleanPhone.startsWith('0') && cleanPhone.length === 10) {
+                    cleanPhone = '252' + cleanPhone.substring(1);
+                } else if (cleanPhone.length === 9) {
+                    cleanPhone = '252' + cleanPhone;
+                }
                 let payload = {};
                 let finalUrl = GLOBAL_URL;
                 let headers = { 'Content-Type': 'application/json', 'Accept': 'application/json' };
