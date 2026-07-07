@@ -2311,8 +2311,9 @@ router.post('/:examId/send-sms', authenticateToken, authorizeRoles('admin', 'sup
                 const total = exam.totalMarks;
                 const subject = exam.subject?.name || exam.name;
                 const grade = r.grade || 'N/A';
+                const celceliska = (marks / 2).toFixed(1);
 
-                const message = `${examSchoolDisplayName}\nNatiijada imtixaanka ${subject}: ${studentName} wuxuu ka keenay ${marks}/${total}. Grade: ${grade}. Mahadsanid.`;
+                const message = `${examSchoolDisplayName}\nNatiijada imtixaanka ${subject}:\nMagaca: ${studentName}\nDhibcaha: ${marks}/${total}\nCelceliska: ${celceliska}\nGrade: ${grade}\nMahadsanid.`;
 
                 const smsResult = await sendGolisSMS(parentPhone, message);
                 if (smsResult.success) sentCount++;
