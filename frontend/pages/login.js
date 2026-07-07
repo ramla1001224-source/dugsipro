@@ -111,7 +111,7 @@ export default function Login() {
                                 </div>
                             ) : (
                                 <div className="w-40 h-40 flex items-center justify-center p-4 transition-transform hover:scale-105 duration-500">
-                                    <img src="/logo.svg" alt="Dugsi Pro System" className="max-w-full max-h-full object-contain filter drop-shadow-2xl" />
+                                    <img src="/logo.svg" alt="Dugsi Pro System" width="100" style={{ maxWidth: '100%', height: 'auto', width: '100px' }} className="object-contain filter drop-shadow-2xl" />
                                 </div>
                             )}
                         </div>

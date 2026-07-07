@@ -306,11 +306,11 @@ export default function Layout({ children, title }) {
           <div className="p-6 border-b border-slate-800 flex items-center gap-3">
             {schoolInfo?.logo ? (
               <div className="w-10 h-10 rounded-xl bg-white/10 p-1 flex-shrink-0">
-                <img src={getImageUrl(schoolInfo.logo)} alt="Logo" className="w-full h-full object-contain" />
+                <img src={getImageUrl(schoolInfo.logo)} alt="Logo" width="40" height="40" style={{ width: '40px', height: '40px' }} className="w-full h-full object-contain" />
               </div>
             ) : (
               <div className="w-10 h-10 flex-shrink-0 flex items-center justify-center">
-                <img src="/logo.svg" alt="Logo" className="w-full h-full object-contain drop-shadow-md" />
+                <img src="/logo.svg" alt="Logo" width="40" height="40" style={{ width: '40px', height: '40px' }} className="w-full h-full object-contain drop-shadow-md" />
               </div>
             )}
             <div className="min-w-0">
@@ -359,11 +359,11 @@ export default function Layout({ children, title }) {
               <div className="flex items-center gap-3 min-w-0">
                 {schoolInfo?.logo ? (
                   <div className="w-8 h-8 rounded-lg bg-slate-50 p-1 border border-gray-100 hidden sm:flex items-center justify-center flex-shrink-0">
-                    <img src={schoolInfo.logo.startsWith('public/') ? `${apiUrl}/${schoolInfo.logo.replace('public/', '')}` : schoolInfo.logo} alt="Logo" className="w-full h-full object-contain" />
+                    <img src={schoolInfo.logo.startsWith('public/') ? `${apiUrl}/${schoolInfo.logo.replace('public/', '')}` : schoolInfo.logo} alt="Logo" width="32" height="32" style={{ width: '32px', height: '32px' }} className="w-full h-full object-contain" />
                   </div>
                 ) : (
                   <div className="w-8 h-8 hidden sm:flex items-center justify-center flex-shrink-0">
-                    <img src="/logo.svg" alt="Logo" className="w-full h-full object-contain filter drop-shadow-sm" />
+                    <img src="/logo.svg" alt="Logo" width="32" height="32" style={{ width: '32px', height: '32px' }} className="w-full h-full object-contain filter drop-shadow-sm" />
                   </div>
                 )}
                 <h2 className="text-lg md:text-xl font-black text-slate-800 truncate">{title}</h2>
