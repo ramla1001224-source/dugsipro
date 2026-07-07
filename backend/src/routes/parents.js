@@ -413,6 +413,41 @@ router.put('/:id', authenticateToken, authorizeRoles('admin', 'owner'), async (r
     }
 });
 
+// Delete ALL parents for this school
+router.delete('/all', authenticateToken, authorizeRoles('admin', 'owner'), async (req, res) => {
+    try {
+        let schoolId = req.user.schoolId;
+        if (!schoolId) {
+            const user = await prisma.user.findUnique({ where: { id: req.user.id } });
+            if (user) schoolId = user.schoolId;
+        }
+        if (!schoolId) return res.status(400).json({ message: 'School ID not found' });
+
+        // Find all parents belonging to this school
+        const allParents = await prisma.parent.findMany({
+            where: { user: { schoolId } },
+            select: { id: true, userId: true }
+        });
+
+        if (allParents.length === 0) {
+            return res.json({ message: 'Ma jiro waalid la tirtiro', deleted: 0 });
+        }
+
+        const parentIds = allParents.map(p => p.id);
+        const userIds = allParents.map(p => p.userId);
+
+        await prisma.$transaction([
+            prisma.parentStudent.deleteMany({ where: { parentId: { in: parentIds } } }),
+            prisma.parent.deleteMany({ where: { id: { in: parentIds } } }),
+            prisma.user.deleteMany({ where: { id: { in: userIds } } })
+        ]);
+
+        res.json({ message: `${allParents.length} waalid ayaa la tirtiray`, deleted: allParents.length });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
 // Delete parent account
 router.delete('/:id', authenticateToken, authorizeRoles('admin', 'owner'), async (req, res) => {
     const { id } = req.params;

@@ -23,6 +23,8 @@ export default function AdminParents() {
     const [importResult, setImportResult] = useState(null)
     const [dragOver, setDragOver] = useState(false)
     const [searchQuery, setSearchQuery] = useState('')
+    const [showDeleteAllModal, setShowDeleteAllModal] = useState(false)
+    const [deletingAll, setDeletingAll] = useState(false)
     const fileInputRef = useRef(null)
 
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4001'
@@ -112,6 +114,20 @@ export default function AdminParents() {
             fetchAll();
         } catch (e) {
             alert(e.response?.data?.message || 'Error deleting parent');
+        }
+    }
+
+    const handleDeleteAll = async () => {
+        setDeletingAll(true)
+        try {
+            const res = await axios.delete(`${apiUrl}/api/parents/all`, { headers: headers() })
+            setShowDeleteAllModal(false)
+            fetchAll()
+            alert(res.data?.message || 'Dhammaan waalidiinta waa la tirtiray')
+        } catch (e) {
+            alert(e.response?.data?.message || 'Error deleting all parents')
+        } finally {
+            setDeletingAll(false)
         }
     }
 
@@ -212,6 +228,10 @@ export default function AdminParents() {
                 <div className="flex gap-3">
                     <button onClick={handleExportExcel} className="bg-emerald-50 text-emerald-600 hover:bg-emerald-100 px-4 py-3 rounded-xl font-bold transition-all flex items-center gap-2">Export Excel</button>
                     <button onClick={() => setShowExcelModal(true)} className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-emerald-100 transition-all">Import Excel</button>
+                    <button onClick={() => setShowDeleteAllModal(true)} className="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-red-100 transition-all flex items-center gap-2">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                        Tirtir Dhammaan
+                    </button>
                     <button onClick={() => openModal()} className="bg-pink-600 hover:bg-pink-700 text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-pink-100 transition-all">Ku dar Waalid</button>
                 </div>
             </div>
@@ -489,6 +509,63 @@ export default function AdminParents() {
                             >
                                 {importing ? 'Soo gelinayaa...' : 'Bilow Soo gelinta (Start Import)'}
                             </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {showDeleteAllModal && (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden">
+                        <div className="bg-red-600 p-6 text-white">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 bg-red-500 rounded-full flex items-center justify-center shrink-0">
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /></svg>
+                                </div>
+                                <div>
+                                    <h3 className="text-xl font-bold">Digniin Xasaasi ah!</h3>
+                                    <p className="text-red-100 text-sm mt-0.5">Falkan lama celin karo</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="p-8 space-y-4">
+                            <p className="text-slate-700 font-semibold text-center text-lg">
+                                Ma hubtaa inaad tirtirto <span className="text-red-600 font-black">dhammaan waalidiinta</span> ({parents.length}) dugsigu?
+                            </p>
+                            <div className="bg-red-50 border border-red-100 rounded-2xl p-4 space-y-2">
+                                <p className="text-red-700 text-sm font-bold flex items-center gap-2">
+                                    <svg className="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd"/></svg>
+                                    Dhammaan akoonnadooda waa la tirtirayaa
+                                </p>
+                                <p className="text-red-700 text-sm font-bold flex items-center gap-2">
+                                    <svg className="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd"/></svg>
+                                    Xiriirka carruurta waa la jarnayaa
+                                </p>
+                                <p className="text-red-700 text-sm font-bold flex items-center gap-2">
+                                    <svg className="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd"/></svg>
+                                    Falkan ma soo laaban karo!
+                                </p>
+                            </div>
+                            <div className="flex gap-3 pt-2">
+                                <button
+                                    onClick={() => setShowDeleteAllModal(false)}
+                                    disabled={deletingAll}
+                                    className="flex-1 py-3 rounded-2xl border-2 border-gray-200 text-slate-700 font-bold hover:bg-gray-50 transition-all"
+                                >
+                                    Ka Noqo
+                                </button>
+                                <button
+                                    onClick={handleDeleteAll}
+                                    disabled={deletingAll}
+                                    className={`flex-1 py-3 rounded-2xl font-bold text-white transition-all shadow-lg ${ deletingAll ? 'bg-gray-400 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700 shadow-red-100'}`}
+                                >
+                                    {deletingAll ? (
+                                        <span className="flex items-center justify-center gap-2">
+                                            <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                                            Tirtirayaa...
+                                        </span>
+                                    ) : 'Haa, Tirtir Dhammaan'}
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
