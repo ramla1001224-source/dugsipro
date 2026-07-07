@@ -2313,7 +2313,7 @@ router.post('/:examId/send-sms', authenticateToken, authorizeRoles('admin', 'sup
                 const grade = r.grade || 'N/A';
                 const celceliska = (marks / 2).toFixed(1);
 
-                const message = `${examSchoolDisplayName}\nNatiijada imtixaanka ${subject}:\nMagaca: ${studentName}\nDhibcaha: ${marks}/${total}\nCelceliska: ${celceliska}\nWadarta: ${marks}\nGrade: ${grade}\nMahadsanid.`;
+                const message = `${examSchoolDisplayName}\nNatiijada imtixaanka ${subject}:\nMagaca: ${studentName}\nDhibcaha: ${marks}/${total}\nWadarta: ${marks}\nCelceliska: ${celceliska}\nGrd: ${grade}\nMahadsanid.`;
 
                 const smsResult = await sendGolisSMS(parentPhone, message);
                 if (smsResult.success) sentCount++;
