@@ -2206,7 +2206,8 @@ router.post('/send-bulk-sms', authenticateToken, authorizeRoles('admin', 'super_
                 const grade = calculateGrade(sData.totalMarksObtained, sData.totalMaxMarks, gradingScales);
                 const gradeString = grade && grade !== 'F' ? ` Grd:${grade}.` : '.';
 
-                const message = `${schoolDisplayName}\nNatiijada ${termName}, Fasalka ${className}: ${sData.studentName} - ${subjectsString}. Wadarta: ${sData.totalMarksObtained}/${sData.totalMaxMarks}${gradeString} Mahadsanid.`;
+                const celceliska = (sData.totalMarksObtained / 2).toFixed(1);
+                const message = `${schoolDisplayName}\nNatiijada ${termName}, Fasalka ${className}: ${sData.studentName} - ${subjectsString}. Wadarta: ${sData.totalMarksObtained}/${sData.totalMaxMarks}. Celceliska: ${celceliska}${gradeString} Mahadsanid.`;
 
                 smsJobs.push({
                     phone: sData.parentPhone,
