@@ -97,6 +97,7 @@ model Student {
   aiInsights           String?
   qrCode               String?
   scholarship          String?                @default("none")
+  parentPhone          String?
   updated_at           DateTime               @default(now()) @updatedAt
   sectionId            String?
   Attendance           Attendance[]

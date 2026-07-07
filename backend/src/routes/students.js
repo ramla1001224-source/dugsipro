@@ -314,7 +314,7 @@ router.get('/validate-code/:code', authenticateToken, async (req, res) => {
 
 // ==================== CREATE SINGLE STUDENT ====================
 router.post('/create', authenticateToken, authorizeRoles('admin', 'owner', 'super_admin'), requireSchoolAccess(), async (req, res) => {
-  const { name, password, class: className, phone, address, gender, scholarship } = req.body;
+  const { name, password, class: className, phone, address, gender, scholarship, parentPhone } = req.body;
   if (!name || !password) return res.status(400).json({ message: 'Missing fields' });
 
   const bcrypt = require('bcrypt');
@@ -370,6 +370,7 @@ router.post('/create', authenticateToken, authorizeRoles('admin', 'owner', 'supe
           address,
           gender: gender || null,
           scholarship: scholarship || 'none',
+          parentPhone: parentPhone || null,
           status: 'active'
         }
       });
@@ -528,7 +529,8 @@ router.post('/import', authenticateToken, authorizeRoles('admin', 'owner'), requ
         phone: getValue(row, ['phone', 'telefon', 'mobile', 'cell']) || null,
         address: getValue(row, ['address', 'cinwaanka', 'location']) || null,
         gender: getValue(row, ['gender', 'jinsiga', 'sex']) || null,
-        dob: getValue(row, ['date of birth', 'dob', 'dhalashada', 'birthdate', 'taariikh']) || null
+        dob: getValue(row, ['date of birth', 'dob', 'dhalashada', 'birthdate', 'taariikh']) || null,
+        parentPhone: getValue(row, ['parent phone', 'parentphone', 'telefon waalidka', 'waalidka telefoon', 'parent tel']) || null
       };
     }).filter(r => {
       if (!r.name) {
@@ -600,7 +602,8 @@ router.post('/import', authenticateToken, authorizeRoles('admin', 'owner'), requ
                 phone: row.phone ? String(row.phone) : null,
                 address: row.address ? String(row.address) : null,
                 gender: row.gender ? String(row.gender) : null,
-                dob: row.dob ? new Date(row.dob) : null
+                dob: row.dob ? new Date(row.dob) : null,
+                parentPhone: row.parentPhone ? String(row.parentPhone) : null
               }
             });
 
@@ -637,7 +640,7 @@ router.post('/import', authenticateToken, authorizeRoles('admin', 'owner'), requ
 
 // ==================== UPDATE STUDENT ====================
 router.put('/:id', authenticateToken, authorizeRoles('admin', 'owner'), requireSchoolAccess(), async (req, res) => {
-  const { name, password, class: className, phone, address, gender, dob, student_id, scholarship } = req.body;
+  const { name, password, class: className, phone, address, gender, dob, student_id, scholarship, parentPhone } = req.body;
   try {
     let schoolId = req.query.schoolId || req.user.schoolId;
 
@@ -696,6 +699,7 @@ router.put('/:id', authenticateToken, authorizeRoles('admin', 'owner'), requireS
     if (gender !== undefined) studentData.gender = gender || null;
     if (dob !== undefined) studentData.dob = dob ? new Date(dob) : null;
     if (scholarship !== undefined) studentData.scholarship = scholarship || 'none';
+    if (parentPhone !== undefined) studentData.parentPhone = parentPhone || null;
 
     const [updatedUser, updatedStudent] = await prisma.$transaction(async (tx) => {
       const u = await tx.user.update({ where: { id: student.userId }, data: userData });

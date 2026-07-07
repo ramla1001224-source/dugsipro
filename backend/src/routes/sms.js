@@ -393,28 +393,48 @@ router.post('/bulk-parents', authenticateToken, authorizeRoles('admin', 'owner',
 
         enrollments.forEach(enc => {
             const student = enc.student;
-            student.Parents.forEach(ps => {
-                const parent = ps.parent;
-                if (parent && parent.phone) {
-                    // Clean phone number
-                    const phone = parent.phone.replace(/\D/g, '');
-                    if (phone.length >= 7) {
-                        // Deduplicate by phone and message to avoid spamming parents with multiple children
-                        const dedupeKey = `${phone}:${message}`;
-                        if (!processedParentPhones.has(dedupeKey)) {
-                            smsJobs.push({
-                                phone: parent.phone,
-                                message: fullMessage,
-                                schoolId: schoolId,
-                                studentId: student.id,
-                                studentName: student.user.name,
-                                type: 'parent_alert'
-                            });
-                            processedParentPhones.add(dedupeKey);
+
+            // ── Primary: Linked parent accounts ─────────────────────────────
+            if (student.Parents && student.Parents.length > 0) {
+                student.Parents.forEach(ps => {
+                    const parent = ps.parent;
+                    if (parent && parent.phone) {
+                        const phone = parent.phone.replace(/\D/g, '');
+                        if (phone.length >= 7) {
+                            const dedupeKey = `${phone}:${message}`;
+                            if (!processedParentPhones.has(dedupeKey)) {
+                                smsJobs.push({
+                                    phone: parent.phone,
+                                    message: fullMessage,
+                                    schoolId,
+                                    studentId: student.id,
+                                    studentName: student.user.name,
+                                    type: 'parent_alert'
+                                });
+                                processedParentPhones.add(dedupeKey);
+                            }
                         }
                     }
+                });
+            }
+            // ── Fallback: student.parentPhone (no linked parent account) ────
+            else if (student.parentPhone) {
+                const phone = student.parentPhone.replace(/\D/g, '');
+                if (phone.length >= 7) {
+                    const dedupeKey = `${phone}:${message}`;
+                    if (!processedParentPhones.has(dedupeKey)) {
+                        smsJobs.push({
+                            phone: student.parentPhone,
+                            message: fullMessage,
+                            schoolId,
+                            studentId: student.id,
+                            studentName: student.user.name,
+                            type: 'parent_alert'
+                        });
+                        processedParentPhones.add(dedupeKey);
+                    }
                 }
-            });
+            }
         });
 
         if (smsJobs.length === 0) {
