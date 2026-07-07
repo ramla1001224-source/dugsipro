@@ -610,7 +610,7 @@ router.post('/import', authenticateToken, authorizeRoles('admin', 'owner'), uplo
             const name = row.Name || row['Magaca'] || row['Full Name'];
             const phone = String(row.Phone || row['Telefoonka'] || row['Telefoon'] || '').trim();
             const occupation = row.Occupation || row['Shaqada'];
-            const studentIdsRaw = row['Student IDs (Optional)'] || row['Carruurta'] || row['Students'];
+            const studentIdsRaw = row['Student IDs (Optional)'] || row['Carruurta'] || row['Students'] || row['Children'];
 
             // Skip completely empty rows or unfilled template rows
             if (!name && !phone && !occupation) {
@@ -630,12 +630,30 @@ router.post('/import', authenticateToken, authorizeRoles('admin', 'owner'), uplo
                 // Find students to link
                 let linkStudentIds = [];
                 if (studentIdsRaw) {
-                    const codes = String(studentIdsRaw).split(/[,;]/).map(c => c.trim()).filter(Boolean);
-                    const students = await prisma.student.findMany({
-                        where: { student_id: { in: codes }, user: { schoolId } },
-                        select: { id: true }
-                    });
-                    linkStudentIds = students.map(s => s.id);
+                    const rawStr = String(studentIdsRaw);
+                    let codes = [];
+                    
+                    // Try to extract IDs from parentheses: "Name (ID), Name (ID)"
+                    const regex = /\(([^)]+)\)/g;
+                    let match;
+                    let hasParentheses = false;
+                    while ((match = regex.exec(rawStr)) !== null) {
+                        hasParentheses = true;
+                        codes.push(match[1].trim());
+                    }
+                    
+                    // Fallback if no parentheses are found, assume it's a comma separated list of IDs
+                    if (!hasParentheses) {
+                        codes = rawStr.split(/[,;]/).map(c => c.trim()).filter(Boolean);
+                    }
+
+                    if (codes.length > 0) {
+                        const students = await prisma.student.findMany({
+                            where: { student_id: { in: codes }, user: { schoolId } },
+                            select: { id: true }
+                        });
+                        linkStudentIds = students.map(s => s.id);
+                    }
                 }
 
                 // Check for duplicate username in this school
