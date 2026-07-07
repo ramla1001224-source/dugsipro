@@ -117,7 +117,13 @@ export default function AdminParents() {
 
     // Excel Export
     const handleExportExcel = () => {
-        const data = parents.map(p => ({
+        const sortedParents = [...parents].sort((a, b) => {
+            const nameA = a.user?.name?.toLowerCase() || '';
+            const nameB = b.user?.name?.toLowerCase() || '';
+            return nameA.localeCompare(nameB);
+        });
+
+        const data = sortedParents.map(p => ({
             'Name': p.user?.name,
             'Phone': p.phone,
             'Occupation': p.occupation,

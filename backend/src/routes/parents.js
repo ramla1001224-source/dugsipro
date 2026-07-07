@@ -527,24 +527,72 @@ router.post('/daily-attendance-summary', authenticateToken, authorizeRoles('admi
 });
 
 // ==================== DOWNLOAD EXCEL TEMPLATE ====================
-router.get('/template', authenticateToken, authorizeRoles('admin', 'owner'), (req, res) => {
-    const wb = XLSX.utils.book_new();
-    const headers = [['Name', 'Phone', 'Occupation', 'Student IDs (Optional)']];
-    headers.push(['Mohamed Ahmed', '0612345678', 'Teacher', 'S-1234, S-5678']);
-    const ws = XLSX.utils.aoa_to_sheet(headers);
+router.get('/template', authenticateToken, authorizeRoles('admin', 'owner'), async (req, res) => {
+    try {
+        let schoolId = req.user.schoolId;
+        if (req.user.role === 'super_admin' && req.query.schoolId) {
+            schoolId = req.query.schoolId;
+        }
 
-    ws['!cols'] = [{ wch: 25 }, { wch: 15 }, { wch: 20 }, { wch: 30 }];
-    XLSX.utils.book_append_sheet(wb, ws, 'Parents');
-    const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+        // If schoolId is missing from token, recover from User record
+        if (!schoolId && !['super_admin', 'owner'].includes((req.user.role || '').toLowerCase())) {
+          try {
+            const user = await prisma.user.findUnique({ where: { id: req.user.id } });
+            if (user) schoolId = user.schoolId;
+          } catch (err) {
+            console.error('Template Recovery Error:', err);
+          }
+        }
 
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', 'attachment; filename=parents_template.xlsx');
-    res.send(buffer);
+        const students = await prisma.student.findMany({
+            where: schoolId ? { user: { schoolId } } : { user: { schoolId: 'NONE_AUTHORIZED' } },
+            include: { user: true }
+        });
+
+        // Sort students alphabetically
+        students.sort((a, b) => (a.user?.name || '').localeCompare(b.user?.name || ''));
+
+        const wb = XLSX.utils.book_new();
+        const headers = [['Name', 'Phone', 'Occupation', 'Student IDs (Optional)', 'Student Name (For Reference)']];
+        
+        if (students.length > 0) {
+            students.forEach(s => {
+                headers.push(['', '', '', s.student_id || '', s.user?.name || '']);
+            });
+        } else {
+            headers.push(['Mohamed Ahmed', '0612345678', 'Teacher', 'S-1234, S-5678', 'Ali Mohamed']);
+        }
+
+        const ws = XLSX.utils.aoa_to_sheet(headers);
+
+        ws['!cols'] = [{ wch: 25 }, { wch: 15 }, { wch: 20 }, { wch: 30 }, { wch: 30 }];
+        XLSX.utils.book_append_sheet(wb, ws, 'Parents');
+        const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', 'attachment; filename=parents_template.xlsx');
+        res.send(buffer);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
 });
 
 // ==================== BULK IMPORT FROM EXCEL ====================
 router.post('/import', authenticateToken, authorizeRoles('admin', 'owner'), upload.single('file'), async (req, res) => {
-    const schoolId = req.user.schoolId;
+    let schoolId = req.user.schoolId;
+    if (req.user.role === 'super_admin' && req.query.schoolId) {
+        schoolId = req.query.schoolId;
+    }
+
+    if (!schoolId && !['super_admin', 'owner'].includes((req.user.role || '').toLowerCase())) {
+        try {
+            const user = await prisma.user.findUnique({ where: { id: req.user.id } });
+            if (user) schoolId = user.schoolId;
+        } catch (err) {
+            console.error('Import Recovery Error:', err);
+        }
+    }
+
     if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
 
     try {
@@ -564,6 +612,11 @@ router.post('/import', authenticateToken, authorizeRoles('admin', 'owner'), uplo
             const occupation = row.Occupation || row['Shaqada'];
             const studentIdsRaw = row['Student IDs (Optional)'] || row['Carruurta'] || row['Students'];
 
+            // Skip completely empty rows or unfilled template rows
+            if (!name && !phone && !occupation) {
+                continue; 
+            }
+
             if (!name) {
                 results.errors.push({ row: rowNum, message: `Laf-dhabaatada ${rowNum}: Magaca waalidka waa maqan yahay.` });
                 continue;
@@ -574,15 +627,6 @@ router.post('/import', authenticateToken, authorizeRoles('admin', 'owner'), uplo
                 const username = phone ? phone.replace(/\+/g, '') : `p${Math.floor(100000 + Math.random() * 900000)}`;
                 const hashed = await bcrypt.hash(defaultPassword, 10);
 
-                // Check for duplicate username in this school
-                const existing = await prisma.user.findFirst({
-                    where: { username: username.toLowerCase(), schoolId }
-                });
-                if (existing) {
-                    results.errors.push({ row: rowNum, message: `Laf-dhabaatada ${rowNum}: Username '${username}' mar hore ayaa la isticmaalay.` });
-                    continue;
-                }
-
                 // Find students to link
                 let linkStudentIds = [];
                 if (studentIdsRaw) {
@@ -592,6 +636,37 @@ router.post('/import', authenticateToken, authorizeRoles('admin', 'owner'), uplo
                         select: { id: true }
                     });
                     linkStudentIds = students.map(s => s.id);
+                }
+
+                // Check for duplicate username in this school
+                const existingUser = await prisma.user.findFirst({
+                    where: { username: username.toLowerCase(), schoolId }
+                });
+
+                if (existingUser) {
+                    if (existingUser.role !== 'parent') {
+                        results.errors.push({ row: rowNum, message: `Laf-dhabaatada ${rowNum}: Username '${username}' mar hore ayaa la isticmaalay laakiin ma aha waalid.` });
+                        continue;
+                    }
+
+                    const existingParent = await prisma.parent.findUnique({
+                        where: { userId: existingUser.id }
+                    });
+
+                    if (existingParent) {
+                        // Link new students to existing parent
+                        if (linkStudentIds.length > 0) {
+                            for (const sid of linkStudentIds) {
+                                await prisma.parentStudent.upsert({
+                                    where: { parentId_studentId: { parentId: existingParent.id, studentId: sid } },
+                                    update: {},
+                                    create: { parentId: existingParent.id, studentId: sid }
+                                });
+                            }
+                        }
+                        results.success++;
+                        continue;
+                    }
                 }
 
                 await prisma.$transaction(async (tx) => {
