@@ -125,6 +125,13 @@ router.get('/export-template', authenticateToken, async (req, res) => {
             existingMap.set(g.studentId, g);
         });
 
+        // Sort enrollments by student ID (numerically)
+        enrollments.sort((a, b) => {
+            const idA = a.student?.student_id || a.studentId || '';
+            const idB = b.student?.student_id || b.studentId || '';
+            return String(idA).localeCompare(String(idB), undefined, { numeric: true, sensitivity: 'base' });
+        });
+
         const data = enrollments.map(e => {
             const current = existingMap.get(e.studentId);
             return {

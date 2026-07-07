@@ -2911,6 +2911,13 @@ router.get('/export-template', authenticateToken, async (req, res) => {
         });
         const marksMap = new Map(existingResults.map(r => [r.studentId, r.marks]));
 
+        // Sort enrollments by student ID (numerically)
+        enrollments.sort((a, b) => {
+            const idA = a.student?.student_id || a.studentId || '';
+            const idB = b.student?.student_id || b.studentId || '';
+            return String(idA).localeCompare(String(idB), undefined, { numeric: true, sensitivity: 'base' });
+        });
+
         // Generate Excel data
         const data = enrollments.map(e => ({
             'Student ID': e.student.student_id || e.studentId,
