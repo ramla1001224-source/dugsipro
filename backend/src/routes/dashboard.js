@@ -357,7 +357,7 @@ router.get('/stats', authenticateToken, authorizeRoles('admin', 'super_admin', '
                     where: {
                         student: {
                             user: { schoolId: schoolId || undefined },
-                            Enrollments: { some: { isCurrent: true, status: { in: ['active', 'promoted', 'retained'] }, ...schoolFilter } }
+                            Enrollments: { some: { isCurrent: true, status: { in: ['active', 'promoted', 'retained'] }, ...schoolFilter, ...(shift ? { section: { shift } } : {}) } }
                         },
                         month: currentMonth,
                         year: currentYear,
