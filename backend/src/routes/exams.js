@@ -1160,7 +1160,7 @@ router.post('/', authenticateToken, authorizeRoles('admin', 'owner', 'teacher'),
     }
     next();
 }, async (req, res) => {
-    const { sessions, name, type, classId, sectionId, totalMarks, date, endTime, description, subjectId } = req.body;
+    const { sessions, name, type, classId, sectionId, totalMarks, date, endTime, description, subjectId, marksMode, subjectMarks } = req.body;
     let { termId } = req.body;
     let schoolId = req.user.schoolId;
 
@@ -1355,6 +1355,13 @@ router.post('/', authenticateToken, authorizeRoles('admin', 'owner', 'teacher'),
                 if (existing) return existing;
 
                 const examName = `${name} - ${sub.name}`;
+                
+                // Determine the correct total marks for this specific subject
+                let examTotalMarks = Number(totalMarks) || 100;
+                if (marksMode === 'per_subject' && subjectMarks && subjectMarks[sub.id]) {
+                    examTotalMarks = Number(subjectMarks[sub.id]) || examTotalMarks;
+                }
+
                 return prisma.exam.create({
                     data: {
                         name: examName,
@@ -1363,7 +1370,7 @@ router.post('/', authenticateToken, authorizeRoles('admin', 'owner', 'teacher'),
                         classId: classId || null,
                         sectionId: sectionId || null,
                         termId: termId || null,
-                        totalMarks: Number(totalMarks) || 100,
+                        totalMarks: examTotalMarks,
                         date: examDate,
                         endTime: examEndDate,
                         description: description || null,

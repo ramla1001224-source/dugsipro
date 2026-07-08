@@ -38,6 +38,10 @@ export default function AdminExams() {
     const [quickAddResult, setQuickAddResult] = useState(null)
     const [validatingCode, setValidatingCode] = useState(false)
 
+    // New states for per-subject marks
+    const [marksMode, setMarksMode] = useState('single')
+    const [subjectMarks, setSubjectMarks] = useState({})
+
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4001'
     const headers = () => ({ Authorization: `Bearer ${localStorage.getItem('token')}` })
 
@@ -519,11 +523,18 @@ export default function AdminExams() {
                 return
             }
             
+            const payload = {
+                ...formData,
+                marksMode,
+                subjectMarks
+            }
+            
             // Sending formData without sessions array triggers bulk creation for ALL class subjects in the backend
-            const res = await axios.post(`${apiUrl}/api/exams`, formData, { headers: headers() })
+            const res = await axios.post(`${apiUrl}/api/exams`, payload, { headers: headers() })
             alert(res.data.message || 'Exams created for all subjects!')
             setShowModal(false)
             setFormData({ name: '', type: '', classId: '', sectionId: '', termId: '', totalMarks: 100, date: '' })
+            setSubjectMarks({})
             fetchAll()
         }
         catch (e) { alert(e.response?.data?.message || 'Error creating exams') }
@@ -608,6 +619,9 @@ export default function AdminExams() {
     }
 
 
+    const classSubjects = formData.classId 
+        ? subjects.filter(sub => sub.Assignments && sub.Assignments.some(a => a.section?.classId === formData.classId))
+        : [];
 
     return (
         <Layout title="Exam Management">
@@ -1508,7 +1522,39 @@ export default function AdminExams() {
                                     </select>
                                 </div>
                                 <div><label className="text-xs font-bold text-gray-400 uppercase mb-1 block">Taariikhda (Date)</label><input type="date" required className="w-full p-3 rounded-xl border font-bold text-slate-700" value={formData.date} onChange={e => setFormData({ ...formData, date: e.target.value })} /></div>
-                                <div><label className="text-xs font-bold text-gray-400 uppercase mb-1 block">Total Marks</label><input type="number" className="w-full p-3 rounded-xl border font-bold text-slate-700" value={formData.totalMarks} onChange={e => setFormData({ ...formData, totalMarks: e.target.value })} /></div>
+                                
+                                <div>
+                                    <label className="text-xs font-bold text-gray-400 uppercase mb-1 block">Habka Dhibcaha (Marks Mode)</label>
+                                    <select className="w-full p-3 rounded-xl border appearance-none bg-white font-bold text-slate-700 outline-none" value={marksMode} onChange={e => setMarksMode(e.target.value)}>
+                                        <option value="single">Hal Mar Wadar Ah (Single Total)</option>
+                                        <option value="per_subject">Maado Kasta Goonideeda (Per Subject)</option>
+                                    </select>
+                                </div>
+                                
+                                {marksMode === 'single' ? (
+                                    <div><label className="text-xs font-bold text-gray-400 uppercase mb-1 block">Total Marks</label><input type="number" className="w-full p-3 rounded-xl border font-bold text-slate-700" value={formData.totalMarks} onChange={e => setFormData({ ...formData, totalMarks: e.target.value })} /></div>
+                                ) : (
+                                    <div className="space-y-2 border p-4 rounded-xl bg-slate-50 max-h-60 overflow-y-auto">
+                                        <label className="text-xs font-bold text-indigo-600 uppercase mb-2 block">Dhibcaha Maadooyinka</label>
+                                        {classSubjects.length === 0 ? (
+                                            <p className="text-xs text-slate-400 font-bold">Fadlan dooro fasal leh maadooyin.</p>
+                                        ) : (
+                                            classSubjects.map(sub => (
+                                                <div key={sub.id} className="flex justify-between items-center gap-4">
+                                                    <span className="text-sm font-bold text-slate-700">{sub.name}</span>
+                                                    <input 
+                                                        type="number" 
+                                                        className="w-24 p-2 rounded-lg border font-bold text-slate-700 text-center" 
+                                                        placeholder="100"
+                                                        value={subjectMarks[sub.id] || ''} 
+                                                        onChange={e => setSubjectMarks({ ...subjectMarks, [sub.id]: e.target.value })} 
+                                                        required
+                                                    />
+                                                </div>
+                                            ))
+                                        )}
+                                    </div>
+                                )}
                                 
                                 <div className="pt-4 flex gap-3">
                                     <button type="button" onClick={() => setShowModal(false)} className="flex-1 bg-slate-100 text-slate-500 font-bold py-3 rounded-xl transition-all">Cancel</button>
