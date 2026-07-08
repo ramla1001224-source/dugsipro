@@ -10,7 +10,7 @@ export default function ResultsSMS() {
     const [selectedTerm, setSelectedTerm] = useState('')
     const [loading, setLoading] = useState(true)
     const [sending, setSending] = useState({})
-    const [isFinal, setIsFinal] = useState(false)
+    const [smsType, setSmsType] = useState('term') // 'term', 'final_100', 'final_midterm'
     const [smsStatus, setSmsStatus] = useState({})
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4001'
     const headers = () => ({ Authorization: `Bearer ${localStorage.getItem('token')}` })
@@ -48,7 +48,7 @@ export default function ResultsSMS() {
                 }
             }
             const res = await axios.get(`${apiUrl}/api/exams/bulk-sms-status`, { 
-                params: { termId: selectedTerm, academicYearId, isFinal },
+                params: { termId: selectedTerm, academicYearId, smsType },
                 headers: headers() 
             });
             setSmsStatus(res.data);
@@ -58,10 +58,10 @@ export default function ResultsSMS() {
     }
 
     useEffect(() => {
-        if ((selectedTerm || isFinal) && academicYears.length > 0) {
+        if ((selectedTerm || smsType !== 'term') && academicYears.length > 0) {
             fetchSmsStatus();
         }
-    }, [selectedTerm, isFinal, academicYears]);
+    }, [selectedTerm, smsType, academicYears]);
 
     const handleSendBulkSMS = async (group) => {
         if (!group.allPublished) {
@@ -82,8 +82,10 @@ export default function ResultsSMS() {
         }
 
         const termLabel = academicYears.flatMap(y => y.Terms || []).find(t => t.id === selectedTerm)?.name || 'Term';
-        const confirmMsg = isFinal 
+        const confirmMsg = smsType === 'final_100'
             ? `Ma hubtaa inaad rabto in SMS loo diro waalidiinta fasalka "${group.className}" iyadoo la isku darayo NATIIJADA SANNADKA OO DHAN (Final 100%)?`
+            : smsType === 'final_midterm'
+            ? `Ma hubtaa inaad rabto in SMS loo diro waalidiinta fasalka "${group.className}" iyadoo la isku darayo (Term + Midterm)?`
             : `Ma hubtaa inaad rabto in SMS wadar ah (Bulk) loo diro waalidiinta fasalka "${group.className}" ee imtixaanka "${termLabel}"?`;
 
         if (!confirm(confirmMsg)) return;
@@ -93,7 +95,7 @@ export default function ResultsSMS() {
             const examIds = group.exams.map(e => e.id);
             const res = await axios.post(`${apiUrl}/api/exams/send-bulk-sms`, { 
                 examIds, 
-                isFinal, 
+                smsType, 
                 academicYearId 
             }, { headers: headers() });
             alert(res.data.message || 'SMS dirista wadar ahaaneed waa la dhameeyay');
@@ -105,11 +107,9 @@ export default function ResultsSMS() {
         }
     }
 
-    const filteredExams = isFinal 
+    const filteredExams = smsType === 'final_100'
         ? exams.filter(ex => {
             if (selectedTerm?.startsWith('YEAR_')) return ex.term?.academicYearId === selectedTerm.replace('YEAR_', '');
-            // Otherwise, if a term is selected, we still show all exams for that year if isFinal is true
-            // but usually users select the YEAR_ID option for final results.
             const yearIdOfTerm = academicYears.find(y => y.Terms?.some(t => t.id === selectedTerm))?.id;
             return ex.term?.academicYearId === yearIdOfTerm;
         })
@@ -156,28 +156,25 @@ export default function ResultsSMS() {
                 </div>
 
                 <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
-                    <div 
-                        className={`flex items-center gap-3 p-4 rounded-2xl border-2 transition-all cursor-pointer ${isFinal ? 'bg-indigo-50 border-indigo-200' : 'bg-white border-slate-100'}`}
-                        onClick={() => setIsFinal(!isFinal)}
+                    <select
+                        className="w-full md:w-auto p-4 rounded-2xl border-2 border-slate-100 bg-white font-bold text-slate-700 focus:border-indigo-500 outline-none transition-all shadow-sm"
+                        value={smsType}
+                        onChange={e => setSmsType(e.target.value)}
                     >
-                        <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${isFinal ? 'bg-indigo-600 border-indigo-600' : 'border-slate-300'}`}>
-                            {isFinal && <span className="text-white text-xs">✓</span>}
-                        </div>
-                        <div>
-                            <p className={`text-xs font-black uppercase tracking-widest ${isFinal ? 'text-indigo-700' : 'text-slate-500'}`}>Final Result (100%)</p>
-                            <p className="text-[10px] text-slate-400 font-bold">Isku dar sanadka oo dhan</p>
-                        </div>
-                    </div>
+                        <option value="term">Term Result (Keliya)</option>
+                        <option value="final_100">Final Result (100% Sannadka)</option>
+                        <option value="final_midterm">Final Result (Term + Midterm)</option>
+                    </select>
 
                     <select
                         className="w-full md:w-80 p-4 rounded-2xl border-2 border-slate-100 bg-white font-bold text-slate-700 focus:border-indigo-500 outline-none transition-all shadow-sm"
                         value={selectedTerm}
                         onChange={e => setSelectedTerm(e.target.value)}
                     >
-                        <option value="">{isFinal ? 'Select Year context' : 'Dooro Time-ka aad rabto (Select Term)'}</option>
+                        <option value="">{smsType === 'final_100' ? 'Select Year context' : 'Dooro Time-ka aad rabto (Select Term)'}</option>
                         {academicYears.filter(year => year.isCurrent).map(year => (
                             <optgroup key={year.id} label={`${year.name} (Hadda)`}>
-                                {isFinal && <option value={`YEAR_${year.id}`}>Dhammaad: {year.name} (All Terms)</option>}
+                                {smsType === 'final_100' && <option value={`YEAR_${year.id}`}>Dhammaad: {year.name} (All Terms)</option>}
                                 {(year.Terms || []).map(term => (
                                     <option key={term.id} value={term.id}>
                                         {term.name} ({year.name})

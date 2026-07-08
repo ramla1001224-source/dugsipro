@@ -2057,7 +2057,8 @@ router.delete('/:id', authenticateToken, authorizeRoles('admin', 'super_admin', 
 // Bulk Send Exam Results via SMS (Combined Subjects per Student)
 router.post('/send-bulk-sms', authenticateToken, authorizeRoles('admin', 'super_admin', 'owner'), async (req, res) => {
     try {
-        const { examIds, isFinal, academicYearId } = req.body;
+        const { examIds, smsType, isFinal, academicYearId } = req.body;
+        const effectiveSmsType = smsType || (isFinal ? 'final_100' : 'term');
         if (!examIds || !Array.isArray(examIds) || examIds.length === 0) {
             return res.status(400).json({ message: 'Exam IDs are required' });
         }
@@ -2086,9 +2087,10 @@ router.post('/send-bulk-sms', authenticateToken, authorizeRoles('admin', 'super_
 
         // 2. Identify which exams to aggregate
         let targetExamIds = examIds;
+        let midtermExamIds = [];
 
-        // If it's final, we aggregate the ENTIRE ACADEMIC YEAR for this class
-        if (isFinal && academicYearId && classId) {
+        // If it's final_100, we aggregate the ENTIRE ACADEMIC YEAR for this class
+        if (effectiveSmsType === 'final_100' && academicYearId && classId) {
             const allYearExams = await prisma.exam.findMany({
                 where: {
                     classId,
@@ -2099,11 +2101,24 @@ router.post('/send-bulk-sms', authenticateToken, authorizeRoles('admin', 'super_
             });
             targetExamIds = allYearExams.map(e => e.id);
             termName = `Sannadka (${termName} Final)`;
+        } else if (effectiveSmsType === 'final_midterm' && academicYearId && classId) {
+            const allYearExams = await prisma.exam.findMany({
+                where: {
+                    classId,
+                    term: { academicYearId },
+                    status: { in: ['published', 'locked'] },
+                    ...(schoolId ? { schoolId } : {})
+                }
+            });
+            targetExamIds = examIds;
+            midtermExamIds = allYearExams.map(e => e.id).filter(id => !targetExamIds.includes(id));
+            termName = `Sannadka (${termName} + Midterm)`;
         }
 
         // 3. Fetch all results for these target exams
+        const allExamIdsToFetch = [...targetExamIds, ...midtermExamIds];
         const results = await prisma.examResult.findMany({
-            where: { examId: { in: targetExamIds } },
+            where: { examId: { in: allExamIdsToFetch } },
             include: {
                 exam: { include: { subject: true } },
                 student: {
@@ -2154,7 +2169,11 @@ router.post('/send-bulk-sms', authenticateToken, authorizeRoles('admin', 'super_
                     parentPhone: parentPhone,
                     subjectTotals: {}, // Use object to sum marks by subject
                     totalMarksObtained: 0,
-                    totalMaxMarks: 0
+                    totalMaxMarks: 0,
+                    finalMarksObtained: 0,
+                    midtermMarksObtained: 0,
+                    finalMaxMarks: 0,
+                    midtermMaxMarks: 0
                 });
             }
 
@@ -2167,12 +2186,29 @@ router.post('/send-bulk-sms', authenticateToken, authorizeRoles('admin', 'super_
             const subAbbr = rawSubName.length > 4 ? rawSubName.substring(0, 4) + '.' : rawSubName;
 
             if (!sData.subjectTotals[subAbbr]) {
-                sData.subjectTotals[subAbbr] = 0;
+                sData.subjectTotals[subAbbr] = { mid: 0, fin: 0, total: 0, takenInFinal: false };
             }
-            sData.subjectTotals[subAbbr] += r.marks;
+            sData.subjectTotals[subAbbr].total += r.marks;
+            
+            const isFinalExam = targetExamIds.includes(r.examId);
+            if (effectiveSmsType === 'final_midterm') {
+                if (isFinalExam) {
+                    sData.subjectTotals[subAbbr].fin += r.marks;
+                    sData.subjectTotals[subAbbr].takenInFinal = true;
+                    sData.finalMarksObtained += r.marks;
+                    sData.finalMaxMarks += (r.exam.totalMarks || 100);
+                } else {
+                    sData.subjectTotals[subAbbr].mid += r.marks;
+                    sData.midtermMarksObtained += r.marks;
+                    sData.midtermMaxMarks += (r.exam.totalMarks || 100);
+                }
+            } else {
+                // Maintain fin as total for regular formats if needed
+                sData.subjectTotals[subAbbr].fin += r.marks;
+            }
         }
 
-        const trackingTypeBase = isFinal
+        const trackingTypeBase = (effectiveSmsType === 'final_100' || effectiveSmsType === 'final_midterm')
             ? `final_results:${academicYearId}`
             : `term_results:${exams[0].termId}`;
 
@@ -2199,22 +2235,40 @@ router.post('/send-bulk-sms', authenticateToken, authorizeRoles('admin', 'super_
             }
 
             if (sData.parentPhone) {
-                // Combine subject totals into string "Arab. 85, Math. 90"
-                const subjectsString = Object.entries(sData.subjectTotals)
-                    .map(([sub, marks]) => `${sub} ${marks}`)
-                    .join(', ');
-                const grade = calculateGrade(sData.totalMarksObtained, sData.totalMaxMarks, gradingScales);
-                const gradeString = grade && grade !== 'F' ? ` Grd:${grade}.` : '.';
+                let message = '';
+                
+                if (effectiveSmsType === 'final_midterm') {
+                    // Only show final subjects
+                    const subjectsString = Object.entries(sData.subjectTotals)
+                        .filter(([_, marks]) => marks.takenInFinal)
+                        .map(([sub, marks]) => `${sub} ${marks.fin}`)
+                        .join(', ');
+                        
+                    const grandTotal = sData.finalMarksObtained + sData.midtermMarksObtained;
+                    const grandMax = sData.finalMaxMarks + sData.midtermMaxMarks;
+                    const celceliska = (grandTotal / 2).toFixed(1);
+                    const grade = calculateGrade(grandTotal, grandMax, gradingScales);
+                    const gradeString = grade && grade !== 'F' ? ` Grd:${grade}.` : '.';
 
-                const celceliska = (sData.totalMarksObtained / 2).toFixed(1);
-                const message = `${schoolDisplayName}\nNatiijada ${termName}, Fasalka ${className}: ${sData.studentName} - ${subjectsString}. Wadarta: ${sData.totalMarksObtained}/${sData.totalMaxMarks}. Celceliska: ${celceliska}${gradeString} Mahadsanid.`;
+                    message = `${schoolDisplayName}\nNatiijada ${termName}, Fasalka ${className}: ${sData.studentName} - ${subjectsString}. W.Final: ${sData.finalMarksObtained}, W.Midterm: ${sData.midtermMarksObtained}. W.Guud: ${grandTotal}/${grandMax}. Celcelis: ${celceliska}${gradeString} Mahadsanid.`;
+                } else {
+                    const subjectsString = Object.entries(sData.subjectTotals)
+                        .map(([sub, marks]) => `${sub} ${marks.total}`)
+                        .join(', ');
+                        
+                    const grade = calculateGrade(sData.totalMarksObtained, sData.totalMaxMarks, gradingScales);
+                    const gradeString = grade && grade !== 'F' ? ` Grd:${grade}.` : '.';
+                    const celceliska = (sData.totalMarksObtained / 2).toFixed(1);
+
+                    message = `${schoolDisplayName}\nNatiijada ${termName}, Fasalka ${className}: ${sData.studentName} - ${subjectsString}. Wadarta: ${sData.totalMarksObtained}/${sData.totalMaxMarks}. Celceliska: ${celceliska}${gradeString} Mahadsanid.`;
+                }
 
                 smsJobs.push({
                     phone: sData.parentPhone,
                     message: message,
                     schoolId: schoolId,
                     studentId: studentId,
-                    type: isFinal ? 'final_result' : 'term_result',
+                    type: (effectiveSmsType === 'final_100' || effectiveSmsType === 'final_midterm') ? 'final_result' : 'term_result',
                     studentName: sData.studentName
                 });
                 sentCount++;
