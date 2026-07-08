@@ -1302,10 +1302,11 @@ router.get('/attendance-details', authenticateToken, authorizeRoles('admin', 'su
         const schoolFilter = schoolId ? { schoolId } : {};
 
         const today = new Date();
-        const startOfDay = new Date(today);
-        startOfDay.setUTCHours(0, 0, 0, 0);
-        const endOfDay = new Date(today);
-        endOfDay.setUTCHours(23, 59, 59, 999);
+        const localYear = today.getFullYear();
+        const localMonth = today.getMonth();
+        const localDate = today.getDate();
+        const startOfDay = new Date(Date.UTC(localYear, localMonth, localDate, 0, 0, 0, 0));
+        const endOfDay = new Date(Date.UTC(localYear, localMonth, localDate, 23, 59, 59, 999));
 
         if (status === 'Pending' || status === 'unmarked') {
             try {
@@ -1338,11 +1339,14 @@ router.get('/attendance-details', authenticateToken, authorizeRoles('admin', 'su
                     by: ['sectionId'],
                     _count: { id: true },
                     where: {
-                        ...schoolFilter,
+                        OR: [
+                            { ...schoolFilter },
+                            ...(schoolId ? [{ schoolId: null, section: { schoolId } }] : [])
+                        ],
                         date: { gte: startOfDay, lte: endOfDay },
                         ...(session && session !== 'undefined' ?
-                            { session: { in: [session, session.replace(/_/g, ' '), session.replace(/ /g, '_')], mode: 'insensitive' } } : {}),
-                        ...(shift && shift !== 'undefined' ? { shift: { equals: shift, mode: 'insensitive' } } : {})
+                            { session: { in: [session, session.replace(/_/g, ' '), session.replace(/ /g, '_')] } } : {}),
+                        ...(shift && shift !== 'undefined' ? { shift } : {})
                     }
                 });
 
@@ -1368,13 +1372,16 @@ router.get('/attendance-details', authenticateToken, authorizeRoles('admin', 'su
 
         const attendance = await prisma.attendance.findMany({
             where: {
-                ...schoolFilter,
+                OR: [
+                    { ...schoolFilter },
+                    ...(schoolId ? [{ schoolId: null, section: { schoolId } }] : [])
+                ],
                 date: { gte: startOfDay, lte: endOfDay },
                 status: status === 'Present' ? { in: ['Present', 'Late'] } : status,
                 ...(req.user.role === 'teacher' ? { sectionId: teacherSectionFilter.id } : {}),
                 ...(session && session !== 'undefined' ?
-                    { session: { in: [session, session.replace(/_/g, ' '), session.replace(/ /g, '_')], mode: 'insensitive' } } : {}),
-                ...(shift && shift !== 'undefined' ? { section: { shift: { equals: shift, mode: 'insensitive' } } } : {})
+                    { session: { in: [session, session.replace(/_/g, ' '), session.replace(/ /g, '_')] } } : {}),
+                ...(shift && shift !== 'undefined' ? { shift } : {})
             },
             include: {
                 student: {
