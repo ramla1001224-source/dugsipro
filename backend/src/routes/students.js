@@ -73,7 +73,7 @@ router.get('/', authenticateToken, authorizeRoles('admin', 'teacher', 'accountan
         },
         skip,
         take: l,
-        orderBy: { student: { user: { name: 'asc' } } }
+        orderBy: { student: { student_id: 'asc' } }
       }),
       prisma.enrollment.count({ where })
     ]);
@@ -156,7 +156,7 @@ router.get('/alumni', authenticateToken, authorizeRoles('admin', 'super_admin', 
         section: { select: { name: true } },
         academicYear: { select: { name: true } }
       },
-      orderBy: { student: { user: { name: 'asc' } } },
+      orderBy: { student: { student_id: 'asc' } },
       take: 1000 // Limit for performance
     });
 
