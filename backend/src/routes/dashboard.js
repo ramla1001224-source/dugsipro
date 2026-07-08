@@ -82,10 +82,14 @@ router.get('/stats', authenticateToken, authorizeRoles('admin', 'super_admin', '
         const userSchoolFilter = schoolId ? { schoolId } : {};
         const isGlobal = !schoolId && (req.user.role === 'super_admin' || req.user.role === 'owner');
 
-        // Dates
+        // Dates — use local midnight so dates match how attendance records are saved
         const today = new Date();
-        const startOfDay = new Date(today); startOfDay.setUTCHours(0, 0, 0, 0);
-        const endOfDay = new Date(today); endOfDay.setUTCHours(23, 59, 59, 999);
+        // Local-midnight approach: get today's date in local timezone, then set to start/end of that day in UTC
+        const localYear = today.getFullYear();
+        const localMonth = today.getMonth();
+        const localDate = today.getDate();
+        const startOfDay = new Date(Date.UTC(localYear, localMonth, localDate, 0, 0, 0, 0));
+        const endOfDay = new Date(Date.UTC(localYear, localMonth, localDate, 23, 59, 59, 999));
         const currentMonth = today.getMonth() + 1;
         const currentYear = today.getFullYear();
         const monthStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}`;
@@ -215,42 +219,52 @@ router.get('/stats', authenticateToken, authorizeRoles('admin', 'super_admin', '
             const [
                 pC, aC, lC, attendanceBySection, tSC, tSCFP, sCS, pPC, pTFY, eTBD, sTBM
             ] = await Promise.all([
+                // Present count
                 prisma.attendance.count({
                     where: {
-                        ...schoolFilter, date: { gte: startOfDay, lte: endOfDay }, status: 'Present',
-                        student: { Enrollments: { some: { isCurrent: true, status: { in: ['active', 'promoted', 'retained'] }, ...schoolFilter } } },
+                        ...schoolFilter,
+                        date: { gte: startOfDay, lte: endOfDay },
+                        status: 'Present',
                         ...(attendanceSession && attendanceSession !== 'undefined' ? { session: { in: [attendanceSession, attendanceSession.replace(/_/g, ' '), attendanceSession.replace(/ /g, '_')] } } : {}),
-                        ...(shift ? { shift: { equals: shift, mode: 'insensitive' } } : {})
+                        ...(shift ? { shift } : {})
                     }
                 }),
+                // Absent count
                 prisma.attendance.count({
                     where: {
-                        ...schoolFilter, date: { gte: startOfDay, lte: endOfDay }, status: 'Absent',
-                        student: { Enrollments: { some: { isCurrent: true, status: { in: ['active', 'promoted', 'retained'] }, ...schoolFilter } } },
+                        ...schoolFilter,
+                        date: { gte: startOfDay, lte: endOfDay },
+                        status: 'Absent',
                         ...(attendanceSession && attendanceSession !== 'undefined' ? { session: { in: [attendanceSession, attendanceSession.replace(/_/g, ' '), attendanceSession.replace(/ /g, '_')] } } : {}),
-                        ...(shift ? { shift: { equals: shift, mode: 'insensitive' } } : {})
+                        ...(shift ? { shift } : {})
                     }
                 }),
+                // Late count
                 prisma.attendance.count({
                     where: {
-                        ...schoolFilter, date: { gte: startOfDay, lte: endOfDay }, status: 'Late',
-                        student: { Enrollments: { some: { isCurrent: true, status: { in: ['active', 'promoted', 'retained'] }, ...schoolFilter } } },
+                        ...schoolFilter,
+                        date: { gte: startOfDay, lte: endOfDay },
+                        status: 'Late',
                         ...(attendanceSession && attendanceSession !== 'undefined' ? { session: { in: [attendanceSession, attendanceSession.replace(/_/g, ' '), attendanceSession.replace(/ /g, '_')] } } : {}),
-                        ...(shift ? { shift: { equals: shift, mode: 'insensitive' } } : {})
+                        ...(shift ? { shift } : {})
                     }
                 }),
+                // Attendance grouped by section (for pending detection)
                 prisma.attendance.groupBy({
                     by: ['sectionId'],
                     _count: { id: true },
                     where: {
-                        ...schoolFilter, date: { gte: startOfDay, lte: endOfDay },
+                        ...schoolFilter,
+                        date: { gte: startOfDay, lte: endOfDay },
                         ...(attendanceSession && attendanceSession !== 'undefined' ? { session: { in: [attendanceSession, attendanceSession.replace(/_/g, ' '), attendanceSession.replace(/ /g, '_')] } } : {}),
-                        ...(shift ? { shift: { equals: shift, mode: 'insensitive' } } : {})
+                        ...(shift ? { shift } : {})
                     }
                 }),
-                prisma.section.count({ where: { ...schoolFilter, ...(shift ? { shift: { equals: shift, mode: 'insensitive' } } : {}) } }),
-                prisma.enrollment.count({ where: { ...schoolFilter, isCurrent: true, status: { in: ['active', 'promoted', 'retained'] }, ...(shift ? { section: { shift: { equals: shift, mode: 'insensitive' } } } : {}) } }),
-                // Student counts per section to compare with attendance for precise 'Pending' detection
+                // Total sections
+                prisma.section.count({ where: { ...schoolFilter, ...(shift ? { shift } : {}) } }),
+                // Total enrolled students
+                prisma.enrollment.count({ where: { ...schoolFilter, isCurrent: true, status: { in: ['active', 'promoted', 'retained'] }, ...(shift ? { section: { shift } } : {}) } }),
+                // Student counts per section (for pending detection)
                 prisma.enrollment.groupBy({
                     by: ['sectionId'],
                     _count: { id: true },
@@ -258,17 +272,25 @@ router.get('/stats', authenticateToken, authorizeRoles('admin', 'super_admin', '
                         ...schoolFilter,
                         isCurrent: true,
                         status: { in: ['active', 'promoted', 'retained'] },
-                        ...(shift ? { section: { shift: { equals: shift, mode: 'insensitive' } } } : {})
+                        ...(shift ? { section: { shift } } : {})
                     }
                 }),
+                // Paid students count — include records with null academicYearId (legacy) OR matching year
                 prisma.monthlyPaymentRecord.count({
                     where: {
                         student: {
                             user: { schoolId: schoolId || undefined },
-                            Enrollments: { some: { isCurrent: true, status: { in: ['active', 'promoted', 'retained'] }, ...schoolFilter, ...(shift ? { section: { shift: { equals: shift, mode: 'insensitive' } } } : {}) } }
+                            Enrollments: { some: { isCurrent: true, status: { in: ['active', 'promoted', 'retained'] }, ...schoolFilter } }
                         },
-                        month: currentMonth, year: currentYear, status: 'paid',
-                        ...(activeYearRecord ? { academicYearId: activeYearRecord.id } : {})
+                        month: currentMonth,
+                        year: currentYear,
+                        status: 'paid',
+                        ...(activeYearRecord ? {
+                            OR: [
+                                { academicYearId: activeYearRecord.id },
+                                { academicYearId: null }
+                            ]
+                        } : {})
                     }
                 }),
                 prisma.payment.groupBy({
