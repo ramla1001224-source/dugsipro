@@ -219,10 +219,13 @@ router.get('/stats', authenticateToken, authorizeRoles('admin', 'super_admin', '
             const [
                 pC, aC, lC, attendanceBySection, tSC, tSCFP, sCS, pPC, pTFY, eTBD, sTBM
             ] = await Promise.all([
-                // Present count
+                // Present count — use OR to catch records with null schoolId saved via section
                 prisma.attendance.count({
                     where: {
-                        ...schoolFilter,
+                        OR: [
+                            { ...schoolFilter },
+                            ...(schoolId ? [{ schoolId: null, section: { schoolId } }] : [])
+                        ],
                         date: { gte: startOfDay, lte: endOfDay },
                         status: 'Present',
                         ...(attendanceSession && attendanceSession !== 'undefined' ? { session: { in: [attendanceSession, attendanceSession.replace(/_/g, ' '), attendanceSession.replace(/ /g, '_')] } } : {}),
@@ -232,7 +235,10 @@ router.get('/stats', authenticateToken, authorizeRoles('admin', 'super_admin', '
                 // Absent count
                 prisma.attendance.count({
                     where: {
-                        ...schoolFilter,
+                        OR: [
+                            { ...schoolFilter },
+                            ...(schoolId ? [{ schoolId: null, section: { schoolId } }] : [])
+                        ],
                         date: { gte: startOfDay, lte: endOfDay },
                         status: 'Absent',
                         ...(attendanceSession && attendanceSession !== 'undefined' ? { session: { in: [attendanceSession, attendanceSession.replace(/_/g, ' '), attendanceSession.replace(/ /g, '_')] } } : {}),
@@ -242,7 +248,10 @@ router.get('/stats', authenticateToken, authorizeRoles('admin', 'super_admin', '
                 // Late count
                 prisma.attendance.count({
                     where: {
-                        ...schoolFilter,
+                        OR: [
+                            { ...schoolFilter },
+                            ...(schoolId ? [{ schoolId: null, section: { schoolId } }] : [])
+                        ],
                         date: { gte: startOfDay, lte: endOfDay },
                         status: 'Late',
                         ...(attendanceSession && attendanceSession !== 'undefined' ? { session: { in: [attendanceSession, attendanceSession.replace(/_/g, ' '), attendanceSession.replace(/ /g, '_')] } } : {}),
@@ -254,7 +263,10 @@ router.get('/stats', authenticateToken, authorizeRoles('admin', 'super_admin', '
                     by: ['sectionId'],
                     _count: { id: true },
                     where: {
-                        ...schoolFilter,
+                        OR: [
+                            { ...schoolFilter },
+                            ...(schoolId ? [{ schoolId: null, section: { schoolId } }] : [])
+                        ],
                         date: { gte: startOfDay, lte: endOfDay },
                         ...(attendanceSession && attendanceSession !== 'undefined' ? { session: { in: [attendanceSession, attendanceSession.replace(/_/g, ' '), attendanceSession.replace(/ /g, '_')] } } : {}),
                         ...(shift ? { shift } : {})
