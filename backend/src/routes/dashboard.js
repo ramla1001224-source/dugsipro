@@ -1447,7 +1447,12 @@ router.get('/payment-details', authenticateToken, authorizeRoles('admin', 'super
                     month,
                     year,
                     status: 'paid',
-                    ...(activeYear ? { academicYearId: activeYear.id } : {})
+                    ...(activeYear ? {
+                        OR: [
+                            { academicYearId: activeYear.id },
+                            { academicYearId: null }
+                        ]
+                    } : {})
                 },
                 select: { studentId: true }
             })).map(r => r.studentId);
@@ -1456,8 +1461,9 @@ router.get('/payment-details', authenticateToken, authorizeRoles('admin', 'super
                 where: {
                     schoolId,
                     isCurrent: true,
+                    status: { in: ['active', 'promoted', 'retained'] },
                     studentId: { notIn: paidStudentIds },
-                    ...(req.query.shift && req.query.shift !== 'undefined' ? { section: { shift: { equals: req.query.shift, mode: 'insensitive' } } } : {})
+                    ...(req.query.shift && req.query.shift !== 'undefined' ? { section: { shift: req.query.shift } } : {})
                 },
                 include: { student: { include: { user: true } }, clss: true, section: true }
             });
@@ -1478,12 +1484,24 @@ router.get('/payment-details', authenticateToken, authorizeRoles('admin', 'super
             where: {
                 student: {
                     user: { ...userSchoolFilter },
-                    ...(req.query.shift && req.query.shift !== 'undefined' ? { section: { shift: { equals: req.query.shift, mode: 'insensitive' } } } : {})
+                    Enrollments: {
+                        some: {
+                            isCurrent: true,
+                            status: { in: ['active', 'promoted', 'retained'] },
+                            ...schoolFilter,
+                            ...(req.query.shift && req.query.shift !== 'undefined' ? { section: { shift: req.query.shift } } : {})
+                        }
+                    }
                 },
                 month,
                 year,
                 status,
-                ...(activeYear ? { academicYearId: activeYear.id } : {})
+                ...(activeYear ? {
+                    OR: [
+                        { academicYearId: activeYear.id },
+                        { academicYearId: null }
+                    ]
+                } : {})
             },
             select: {
                 id: true,
