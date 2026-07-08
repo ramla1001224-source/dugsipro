@@ -1491,12 +1491,12 @@ export default function AdminExams() {
             {
                 showModal && (
                     <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-                        <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-500">
-                            <div className="bg-slate-900 p-6 text-white flex justify-between">
+                        <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-500 max-h-[90vh] flex flex-col">
+                            <div className="bg-slate-900 p-6 text-white flex justify-between shrink-0">
                                 <h3 className="text-xl font-bold">Abuur Imtixaan</h3>
                                 <button onClick={() => setShowModal(false)} className="text-slate-400 hover:text-white">✕</button>
                             </div>
-                            <form onSubmit={handleSubmit} className="p-8 space-y-4">
+                            <form onSubmit={handleSubmit} className="p-8 space-y-4 overflow-y-auto flex-1">
                                 <div><label className="text-xs font-bold text-gray-400 uppercase mb-1 block">Magaca Imtixaanka</label><input required className="w-full p-3 rounded-xl border font-bold" placeholder="e.g. Bile 1" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} /></div>
                                 <div className="bg-indigo-50 text-indigo-700 text-[10px] font-black px-4 py-3 rounded-xl uppercase tracking-widest leading-relaxed">
                                     ℹ️ Fasal kasta oo aad doorato, dhammaan maaddooyinka uu dhigto ayaa imtixaan loo wada abuuri doonaa hal mar.
