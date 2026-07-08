@@ -46,6 +46,7 @@ router.get('/stats', authenticateToken, authorizeRoles('admin', 'super_admin', '
     let paymentAggr = { _sum: { amount: 0 } }, expenseAggr = { _sum: { amount: 0 } }, paidSalAggr = { _sum: { netSalary: 0 } };
     let feeStructures = [], schoolSections = [], smsCount = 0;
     let dayAttendance = [], totalShiftClasses = 0, paidPaymentsCount = 0, totalStudentsCountForPayment = 0;
+    let presentCount = 0, absentCount = 0, lateCount = 0, markedSectionsCount = 0;
     let paymentTotalsForYear = [], expenseTotalsByDay = [], salaryTotalsByMonth = [];
     let activeEnrollmentsForRevenue = [];
 
@@ -218,7 +219,7 @@ router.get('/stats', authenticateToken, authorizeRoles('admin', 'super_admin', '
                     where: {
                         ...schoolFilter, date: { gte: startOfDay, lte: endOfDay }, status: 'Present',
                         student: { Enrollments: { some: { isCurrent: true, status: { in: ['active', 'promoted', 'retained'] }, ...schoolFilter } } },
-                        ...(attendanceSession && attendanceSession !== 'undefined' ? { session: { in: [attendanceSession, attendanceSession.replace(/_/g, ' '), attendanceSession.replace(/ /g, '_')], mode: 'insensitive' } } : {}),
+                        ...(attendanceSession && attendanceSession !== 'undefined' ? { session: { in: [attendanceSession, attendanceSession.replace(/_/g, ' '), attendanceSession.replace(/ /g, '_')] } } : {}),
                         ...(shift ? { shift: { equals: shift, mode: 'insensitive' } } : {})
                     }
                 }),
@@ -226,7 +227,7 @@ router.get('/stats', authenticateToken, authorizeRoles('admin', 'super_admin', '
                     where: {
                         ...schoolFilter, date: { gte: startOfDay, lte: endOfDay }, status: 'Absent',
                         student: { Enrollments: { some: { isCurrent: true, status: { in: ['active', 'promoted', 'retained'] }, ...schoolFilter } } },
-                        ...(attendanceSession && attendanceSession !== 'undefined' ? { session: { in: [attendanceSession, attendanceSession.replace(/_/g, ' '), attendanceSession.replace(/ /g, '_')], mode: 'insensitive' } } : {}),
+                        ...(attendanceSession && attendanceSession !== 'undefined' ? { session: { in: [attendanceSession, attendanceSession.replace(/_/g, ' '), attendanceSession.replace(/ /g, '_')] } } : {}),
                         ...(shift ? { shift: { equals: shift, mode: 'insensitive' } } : {})
                     }
                 }),
@@ -234,7 +235,7 @@ router.get('/stats', authenticateToken, authorizeRoles('admin', 'super_admin', '
                     where: {
                         ...schoolFilter, date: { gte: startOfDay, lte: endOfDay }, status: 'Late',
                         student: { Enrollments: { some: { isCurrent: true, status: { in: ['active', 'promoted', 'retained'] }, ...schoolFilter } } },
-                        ...(attendanceSession && attendanceSession !== 'undefined' ? { session: { in: [attendanceSession, attendanceSession.replace(/_/g, ' '), attendanceSession.replace(/ /g, '_')], mode: 'insensitive' } } : {}),
+                        ...(attendanceSession && attendanceSession !== 'undefined' ? { session: { in: [attendanceSession, attendanceSession.replace(/_/g, ' '), attendanceSession.replace(/ /g, '_')] } } : {}),
                         ...(shift ? { shift: { equals: shift, mode: 'insensitive' } } : {})
                     }
                 }),
@@ -243,7 +244,7 @@ router.get('/stats', authenticateToken, authorizeRoles('admin', 'super_admin', '
                     _count: { id: true },
                     where: {
                         ...schoolFilter, date: { gte: startOfDay, lte: endOfDay },
-                        ...(attendanceSession && attendanceSession !== 'undefined' ? { session: { in: [attendanceSession, attendanceSession.replace(/_/g, ' '), attendanceSession.replace(/ /g, '_')], mode: 'insensitive' } } : {}),
+                        ...(attendanceSession && attendanceSession !== 'undefined' ? { session: { in: [attendanceSession, attendanceSession.replace(/_/g, ' '), attendanceSession.replace(/ /g, '_')] } } : {}),
                         ...(shift ? { shift: { equals: shift, mode: 'insensitive' } } : {})
                     }
                 }),

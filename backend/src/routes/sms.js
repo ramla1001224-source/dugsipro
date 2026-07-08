@@ -51,12 +51,12 @@ router.get('/settings', authenticateToken, authorizeRoles('admin', 'owner', 'sup
 
         // If schoolId is missing from token, recover from User record
         if (!schoolId && !['super_admin', 'owner'].includes((req.user.role || '').toLowerCase())) {
-          try {
-            const user = await prisma.user.findUnique({ where: { id: req.user.id } });
-            if (user) schoolId = user.schoolId;
-          } catch (err) {
-            console.error('SMS Settings Recovery Error:', err);
-          }
+            try {
+                const user = await prisma.user.findUnique({ where: { id: req.user.id } });
+                if (user) schoolId = user.schoolId;
+            } catch (err) {
+                console.error('SMS Settings Recovery Error:', err);
+            }
         }
 
         if (!schoolId) return res.status(400).json({ message: 'School ID required' });
@@ -93,12 +93,12 @@ router.get('/usage-history', authenticateToken, authorizeRoles('admin', 'owner',
 
         // If schoolId is missing from token, recover from User record
         if (!schoolId && !['super_admin', 'owner'].includes((req.user.role || '').toLowerCase())) {
-          try {
-            const user = await prisma.user.findUnique({ where: { id: req.user.id } });
-            if (user) schoolId = user.schoolId;
-          } catch (err) {
-            console.error('SMS History Recovery Error:', err);
-          }
+            try {
+                const user = await prisma.user.findUnique({ where: { id: req.user.id } });
+                if (user) schoolId = user.schoolId;
+            } catch (err) {
+                console.error('SMS History Recovery Error:', err);
+            }
         }
 
         if (!schoolId) return res.status(400).json({ message: 'School ID required' });
@@ -129,12 +129,12 @@ router.get('/usage-details', authenticateToken, authorizeRoles('admin', 'owner',
 
         // If schoolId is missing from token, recover from User record
         if (!schoolId && !['super_admin', 'owner'].includes((req.user.role || '').toLowerCase())) {
-          try {
-            const user = await prisma.user.findUnique({ where: { id: req.user.id } });
-            if (user) schoolId = user.schoolId;
-          } catch (err) {
-            console.error('SMS Details Recovery Error:', err);
-          }
+            try {
+                const user = await prisma.user.findUnique({ where: { id: req.user.id } });
+                if (user) schoolId = user.schoolId;
+            } catch (err) {
+                console.error('SMS Details Recovery Error:', err);
+            }
         }
 
         if (!schoolId || !month || !year) return res.status(400).json({ message: 'Invalid parameters' });
@@ -266,7 +266,7 @@ router.get('/superadmin-logs', authenticateToken, authorizeRoles('super_admin', 
         superAdmin.SuperAdminSchools.forEach(s => schoolMap[s.id] = s.name);
 
         const whereClause = { schoolId: { in: schoolIds } };
-        
+
         // If "all" is passed, we skip month/year filtering
         if (month !== 'all' && year !== 'all') {
             if (!month || !year) {
@@ -300,14 +300,14 @@ router.post('/test', authenticateToken, authorizeRoles('admin', 'owner', 'super_
     try {
         const { phoneNumber, message } = req.body;
         let schoolId = req.user.schoolId;
-        
+
         if (!phoneNumber || !message) {
             return res.status(400).json({ message: 'phoneNumber and message are required' });
         }
 
         const { sendSMS } = require('../services/smsService');
         const result = await sendSMS(phoneNumber, message, { schoolId, type: 'test' });
-        
+
         res.json({
             success: result.success,
             error: result.error,
