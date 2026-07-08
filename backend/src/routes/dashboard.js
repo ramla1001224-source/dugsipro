@@ -38,6 +38,71 @@ router.get('/debug-revenue', authenticateToken, authorizeRoles('admin', 'super_a
     }
 });
 
+// GET /api/dashboard/debug-attendance - TEMPORARY DEBUG ENDPOINT
+router.get('/debug-attendance', authenticateToken, authorizeRoles('admin', 'super_admin', 'owner'), async (req, res) => {
+    try {
+        let schoolId = req.user.schoolId;
+        if (!schoolId && req.user.id) {
+            const u = await prisma.user.findUnique({ where: { id: req.user.id }, select: { schoolId: true } });
+            if (u) schoolId = u.schoolId;
+        }
+
+        const today = new Date();
+        const localYear = today.getFullYear();
+        const localMonth = today.getMonth();
+        const localDate = today.getDate();
+        const startOfDay = new Date(Date.UTC(localYear, localMonth, localDate, 0, 0, 0, 0));
+        const endOfDay = new Date(Date.UTC(localYear, localMonth, localDate, 23, 59, 59, 999));
+
+        // Get today's attendance records - no filter, just school
+        const attendanceToday = await prisma.attendance.findMany({
+            where: {
+                OR: [
+                    { schoolId },
+                    { schoolId: null, section: { schoolId } },
+                    { student: { user: { schoolId } } }
+                ],
+                date: { gte: startOfDay, lte: endOfDay }
+            },
+            select: {
+                id: true, studentId: true, sectionId: true, date: true,
+                status: true, session: true, shift: true, schoolId: true
+            },
+            take: 50,
+            orderBy: { date: 'desc' }
+        });
+
+        // Also get most recent 10 attendance records (any date) for this school
+        const recentAttendance = await prisma.attendance.findMany({
+            where: {
+                OR: [
+                    { schoolId },
+                    { schoolId: null, section: { schoolId } }
+                ]
+            },
+            select: {
+                id: true, studentId: true, sectionId: true, date: true,
+                status: true, session: true, shift: true, schoolId: true
+            },
+            take: 10,
+            orderBy: { date: 'desc' }
+        });
+
+        res.json({
+            serverTime: today.toISOString(),
+            serverTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            localDate: `${localYear}-${localMonth + 1}-${localDate}`,
+            queryRange: { start: startOfDay.toISOString(), end: endOfDay.toISOString() },
+            schoolId,
+            todayAttendanceCount: attendanceToday.length,
+            todayAttendance: attendanceToday,
+            recentAttendance
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // GET /api/dashboard/stats
 // GET /api/dashboard/stats
 router.get('/stats', authenticateToken, authorizeRoles('admin', 'super_admin', 'owner'), async (req, res) => {
