@@ -335,23 +335,8 @@ router.post('/bulk-parents', authenticateToken, authorizeRoles('admin', 'owner',
             return res.status(400).json({ message: 'classId and message are required' });
         }
 
-        // Fetch school name to prepend to message
-        const schoolData = await prisma.school.findUnique({
-            where: { id: schoolId },
-            select: { name: true, superAdminId: true, institutionType: true }
-        });
-        let schoolDisplayName = schoolData?.name || 'Schoolka';
-        if (schoolData?.superAdminId) {
-            const superAdminUser = await prisma.user.findUnique({
-                where: { id: schoolData.superAdminId },
-                select: { schoolName: true }
-            });
-            if (superAdminUser?.schoolName) schoolDisplayName = superAdminUser.schoolName;
-        }
-        // Prefix with institution type label removed as per request
-        // const instPrefixSms = (schoolData?.institutionType || 'school').toLowerCase() === 'machad' ? 'Machad' : 'School';
-        // schoolDisplayName = `${instPrefixSms}: ${schoolDisplayName}`;
-        const fullMessage = `${schoolDisplayName}\n${message}`;
+        // School name prefix removed to keep message within 1 SMS credit limit
+        const fullMessage = message;
 
         // Fetch students and their parents for the given class/section
         const whereClause = {
