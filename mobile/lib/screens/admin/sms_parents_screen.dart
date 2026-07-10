@@ -14,6 +14,9 @@ class SmsParentsScreen extends StatefulWidget {
 class _SmsParentsScreenState extends State<SmsParentsScreen> {
   final ApiService _api = ApiService();
   final TextEditingController _messageCtrl = TextEditingController();
+
+  bool get _hasUnicode => _messageCtrl.text.runes.any((r) => r > 127);
+  int get _smsLimit => _hasUnicode ? 70 : 160;
   
   List<dynamic> _classes = [];
   List<dynamic> _sections = [];
@@ -265,7 +268,16 @@ class _SmsParentsScreenState extends State<SmsParentsScreen> {
           TextField(
             controller: _messageCtrl,
             maxLines: 6,
-            onChanged: (v) => setState(() {}),
+            onChanged: (v) {
+              // Enforce character limit based on content type
+              final hasUnicode = v.runes.any((r) => r > 127);
+              final limit = hasUnicode ? 70 : 160;
+              if (v.length > limit) {
+                _messageCtrl.text = v.substring(0, limit);
+                _messageCtrl.selection = TextSelection.collapsed(offset: limit);
+              }
+              setState(() {});
+            },
             decoration: InputDecoration(
               hintText: 'Halkan ku qor fariinta...',
               fillColor: const Color(0xFFF1F5F9),
@@ -278,8 +290,15 @@ class _SmsParentsScreenState extends State<SmsParentsScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('STAAD: ${_messageCtrl.text.length} CHARACTERS', style: TextStyle(fontSize: 9.sp, fontWeight: FontWeight.w900, color: AppTheme.textSecondary)),
-              Text('SMS: ${(_messageCtrl.text.length / 160).ceil()}', style: TextStyle(fontSize: 9.sp, fontWeight: FontWeight.w900, color: AppTheme.textSecondary)),
+              Text(
+                'STAAD: ${_messageCtrl.text.length}/$_smsLimit${_hasUnicode ? " (EMOJI)" : ""}',
+                style: TextStyle(
+                  fontSize: 9.sp,
+                  fontWeight: FontWeight.w900,
+                  color: _hasUnicode ? Colors.orange : AppTheme.textSecondary,
+                ),
+              ),
+              Text('SMS: 1 CREDIT', style: TextStyle(fontSize: 9.sp, fontWeight: FontWeight.w900, color: AppTheme.textSecondary)),
             ],
           ),
 
