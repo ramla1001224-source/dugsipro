@@ -1570,7 +1570,7 @@ router.patch('/:id/status', authenticateToken, authorizeRoles('admin', 'teacher'
 
                     if (parentPhone) {
                         const grade = resItem.grade || 'N/A';
-                        const msg = `${studentName} ${fullSubjectName.substring(0,3)}:${resItem.marks} Tot:${resItem.marks}/${updated.totalMarks} Grd:${grade}`;
+                        const msg = `Natiijada Imtixaanka ${studentName} ${fullSubjectName.substring(0,3)}:${resItem.marks} Tot:${resItem.marks}/${updated.totalMarks} Grd:${grade}`;
                         smsJobs.push({
                             phone: parentPhone,
                             message: msg,
@@ -2257,7 +2257,7 @@ router.post('/send-bulk-sms', authenticateToken, authorizeRoles('admin', 'super_
                     const celceliska = (grandTotal / 2).toFixed(1);
                     const grade = calculateGrade(grandTotal, grandMax, gradingScales);
 
-                    message = `${sData.studentName} ${subjectsString} Tot:${grandTotal}/${grandMax} Cel:${celceliska} Grd:${grade}`;
+                    message = `Natiijada Imtixaanka ${sData.studentName} ${subjectsString} Tot:${grandTotal}/${grandMax} Cel:${celceliska} Grd:${grade}`;
                 } else {
                     const subjectsString = Object.entries(sData.subjectTotals)
                         .map(([sub, marks]) => `${sub.substring(0,3)}:${marks.total}`)
@@ -2266,7 +2266,7 @@ router.post('/send-bulk-sms', authenticateToken, authorizeRoles('admin', 'super_
                     const celceliska = (sData.totalMarksObtained / 2).toFixed(1);
                     const grade = calculateGrade(sData.totalMarksObtained, sData.totalMaxMarks, gradingScales);
 
-                    message = `${sData.studentName} ${subjectsString} Tot:${sData.totalMarksObtained}/${sData.totalMaxMarks} Cel:${celceliska} Grd:${grade}`;
+                    message = `Natiijada Imtixaanka ${sData.studentName} ${subjectsString} Tot:${sData.totalMarksObtained}/${sData.totalMaxMarks} Cel:${celceliska} Grd:${grade}`;
                 }
 
                 smsJobs.push({
@@ -2374,7 +2374,7 @@ router.post('/:examId/send-sms', authenticateToken, authorizeRoles('admin', 'sup
                 const celceliska = (marks / 2).toFixed(1);
                 const subjShort = subject.substring(0,3);
                 const grade = r.grade || 'N/A';
-                const message = `${studentName} ${subjShort}:${marks} Tot:${marks}/${total} Cel:${celceliska} Grd:${grade}`;
+                const message = `Natiijada Imtixaanka ${studentName} ${subjShort}:${marks} Tot:${marks}/${total} Cel:${celceliska} Grd:${grade}`;
 
                 const smsResult = await sendGolisSMS(parentPhone, message);
                 if (smsResult.success) sentCount++;
