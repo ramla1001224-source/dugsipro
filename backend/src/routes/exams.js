@@ -1568,6 +1568,7 @@ router.patch('/:id/status', authenticateToken, authorizeRoles('admin', 'teacher'
                         ? fullSubjectName.substring(0, 4) + '.'
                         : fullSubjectName;
 
+                    if (parentPhone) {
                         const grade = resItem.grade || 'N/A';
                         const msg = `${studentName} ${fullSubjectName.substring(0,3)}:${resItem.marks} Tot:${resItem.marks}/${updated.totalMarks} Grd:${grade}`;
                         smsJobs.push({
