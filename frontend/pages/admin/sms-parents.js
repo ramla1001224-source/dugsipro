@@ -155,11 +155,20 @@ export default function SMSParents() {
                                         className="w-full p-8 rounded-[2.5rem] border-2 border-slate-100 focus:border-indigo-500 outline-none transition-all font-medium text-slate-700 bg-slate-50 resize-none"
                                         placeholder="Halkan ku qor fariinta aad rabto inaad u dirto waalidiinta..."
                                         value={message}
-                                        onChange={e => setMessage(e.target.value)}
+                                        onChange={e => {
+                                            const text = e.target.value;
+                                            const hasUnicode = /[^\x00-\x7F]/.test(text);
+                                            const limit = hasUnicode ? 70 : 160;
+                                            if (text.length <= limit) {
+                                                setMessage(text);
+                                            }
+                                        }}
                                     ></textarea>
                                     <div className="flex justify-between mt-3 px-4">
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Staad: {message.length} Characters</p>
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Qaybaha SMS: {Math.ceil(message.length / 160) || 0}</p>
+                                        <p className={`text-[10px] font-bold uppercase tracking-widest ${/[^\x00-\x7F]/.test(message) ? 'text-orange-500' : 'text-slate-400'}`}>
+                                            Staad: {message.length} / {/[^\x00-\x7F]/.test(message) ? 70 : 160} Characters {/[^\x00-\x7F]/.test(message) && '(Emoji/Unicode)'}
+                                        </p>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Qaybaha SMS: 1 Credit</p>
                                     </div>
                                 </div>
 
