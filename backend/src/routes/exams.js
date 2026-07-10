@@ -1568,8 +1568,8 @@ router.patch('/:id/status', authenticateToken, authorizeRoles('admin', 'teacher'
                         ? fullSubjectName.substring(0, 4) + '.'
                         : fullSubjectName;
 
-                    if (parentPhone) {
-                        const msg = `${schoolDisplayName} Natiijada ${examTypeSomali} ${studentName} ${fullSubjectName.substring(0,3)}:${resItem.marks} Tot:${resItem.marks}/${updated.totalMarks}`;
+                        const grade = resItem.grade || 'N/A';
+                        const msg = `${studentName} ${fullSubjectName.substring(0,3)}:${resItem.marks} Tot:${resItem.marks}/${updated.totalMarks} Grd:${grade}`;
                         smsJobs.push({
                             phone: parentPhone,
                             message: msg,
@@ -2254,16 +2254,18 @@ router.post('/send-bulk-sms', authenticateToken, authorizeRoles('admin', 'super_
                     const grandTotal = sData.finalMarksObtained + sData.midtermMarksObtained;
                     const grandMax = sData.finalMaxMarks + sData.midtermMaxMarks;
                     const celceliska = (grandTotal / 2).toFixed(1);
+                    const grade = calculateGrade(grandTotal, grandMax, gradingScales);
 
-                    message = `${schoolDisplayName} Natiijada ${termName} ${sData.studentName} ${subjectsString} Tot:${grandTotal}/${grandMax} Cel:${celceliska}`;
+                    message = `${sData.studentName} ${subjectsString} Tot:${grandTotal}/${grandMax} Cel:${celceliska} Grd:${grade}`;
                 } else {
                     const subjectsString = Object.entries(sData.subjectTotals)
                         .map(([sub, marks]) => `${sub.substring(0,3)}:${marks.total}`)
                         .join(',');
                         
                     const celceliska = (sData.totalMarksObtained / 2).toFixed(1);
+                    const grade = calculateGrade(sData.totalMarksObtained, sData.totalMaxMarks, gradingScales);
 
-                    message = `${schoolDisplayName} Natiijada ${termName} ${sData.studentName} ${subjectsString} Tot:${sData.totalMarksObtained}/${sData.totalMaxMarks} Cel:${celceliska}`;
+                    message = `${sData.studentName} ${subjectsString} Tot:${sData.totalMarksObtained}/${sData.totalMaxMarks} Cel:${celceliska} Grd:${grade}`;
                 }
 
                 smsJobs.push({
@@ -2370,8 +2372,8 @@ router.post('/:examId/send-sms', authenticateToken, authorizeRoles('admin', 'sup
                 const subject = exam.subject?.name || exam.name;
                 const celceliska = (marks / 2).toFixed(1);
                 const subjShort = subject.substring(0,3);
-
-                const message = `${examSchoolDisplayName} Natiijada ${subject} ${studentName} ${subjShort}:${marks} Tot:${marks}/${total} Cel:${celceliska}`;
+                const grade = r.grade || 'N/A';
+                const message = `${studentName} ${subjShort}:${marks} Tot:${marks}/${total} Cel:${celceliska} Grd:${grade}`;
 
                 const smsResult = await sendGolisSMS(parentPhone, message);
                 if (smsResult.success) sentCount++;
