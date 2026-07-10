@@ -1569,7 +1569,7 @@ router.patch('/:id/status', authenticateToken, authorizeRoles('admin', 'teacher'
                         : fullSubjectName;
 
                     if (parentPhone) {
-                        const msg = `${schoolDisplayName}\nNatiijada Imtixaan ${examTypeSomali}, Fasalka ${updated.class?.class_name || ''}: ${studentName} wuxuu ${subjectShort} ka keenay ${resItem.marks}/${updated.totalMarks}. Mahadsanid.`;
+                        const msg = `${schoolDisplayName} Natiijada ${examTypeSomali} ${studentName} ${fullSubjectName.substring(0,3)}:${resItem.marks} Tot:${resItem.marks}/${updated.totalMarks}`;
                         smsJobs.push({
                             phone: parentPhone,
                             message: msg,
@@ -2248,26 +2248,22 @@ router.post('/send-bulk-sms', authenticateToken, authorizeRoles('admin', 'super_
                     // Only show final subjects
                     const subjectsString = Object.entries(sData.subjectTotals)
                         .filter(([_, marks]) => marks.takenInFinal)
-                        .map(([sub, marks]) => `${sub} ${marks.fin}`)
-                        .join(', ');
+                        .map(([sub, marks]) => `${sub.substring(0,3)}:${marks.fin}`)
+                        .join(',');
                         
                     const grandTotal = sData.finalMarksObtained + sData.midtermMarksObtained;
                     const grandMax = sData.finalMaxMarks + sData.midtermMaxMarks;
                     const celceliska = (grandTotal / 2).toFixed(1);
-                    const grade = calculateGrade(grandTotal, grandMax, gradingScales);
-                    const gradeString = grade && grade !== 'F' ? ` Grd:${grade}.` : '.';
 
-                    message = `${schoolDisplayName}\nNatiijada ${termName}, Fasalka ${className}: ${sData.studentName} - ${subjectsString}. W.Final: ${sData.finalMarksObtained}, W.Midterm: ${sData.midtermMarksObtained}. W.Guud: ${grandTotal}/${grandMax}. Celcelis: ${celceliska}${gradeString} Mahadsanid.`;
+                    message = `${schoolDisplayName} Natiijada ${termName} ${sData.studentName} ${subjectsString} Tot:${grandTotal}/${grandMax} Cel:${celceliska}`;
                 } else {
                     const subjectsString = Object.entries(sData.subjectTotals)
-                        .map(([sub, marks]) => `${sub} ${marks.total}`)
-                        .join(', ');
+                        .map(([sub, marks]) => `${sub.substring(0,3)}:${marks.total}`)
+                        .join(',');
                         
-                    const grade = calculateGrade(sData.totalMarksObtained, sData.totalMaxMarks, gradingScales);
-                    const gradeString = grade && grade !== 'F' ? ` Grd:${grade}.` : '.';
                     const celceliska = (sData.totalMarksObtained / 2).toFixed(1);
 
-                    message = `${schoolDisplayName}\nNatiijada ${termName}, Fasalka ${className}: ${sData.studentName} - ${subjectsString}. Wadarta: ${sData.totalMarksObtained}/${sData.totalMaxMarks}. Celceliska: ${celceliska}${gradeString} Mahadsanid.`;
+                    message = `${schoolDisplayName} Natiijada ${termName} ${sData.studentName} ${subjectsString} Tot:${sData.totalMarksObtained}/${sData.totalMaxMarks} Cel:${celceliska}`;
                 }
 
                 smsJobs.push({
@@ -2372,10 +2368,10 @@ router.post('/:examId/send-sms', authenticateToken, authorizeRoles('admin', 'sup
                 const marks = r.marks;
                 const total = exam.totalMarks;
                 const subject = exam.subject?.name || exam.name;
-                const grade = r.grade || 'N/A';
                 const celceliska = (marks / 2).toFixed(1);
+                const subjShort = subject.substring(0,3);
 
-                const message = `${examSchoolDisplayName}\nNatiijada imtixaanka ${subject}:\nMagaca: ${studentName}\nDhibcaha: ${marks}/${total}\nWadarta: ${marks}\nCelceliska: ${celceliska}\nGrd: ${grade}\nMahadsanid.`;
+                const message = `${examSchoolDisplayName} Natiijada ${subject} ${studentName} ${subjShort}:${marks} Tot:${marks}/${total} Cel:${celceliska}`;
 
                 const smsResult = await sendGolisSMS(parentPhone, message);
                 if (smsResult.success) sentCount++;
