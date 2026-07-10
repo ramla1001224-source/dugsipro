@@ -2266,7 +2266,11 @@ router.post('/send-bulk-sms', authenticateToken, authorizeRoles('admin', 'super_
                     const celceliska = (sData.totalMarksObtained / 2).toFixed(1);
                     const grade = calculateGrade(sData.totalMarksObtained, sData.totalMaxMarks, gradingScales);
 
-                    message = `Natiijada Imtixaanka ${sData.studentName} ${subjectsString} Tot:${sData.totalMarksObtained}/${sData.totalMaxMarks} Cel:${celceliska} Grd:${grade}`;
+                    if (effectiveSmsType === 'term') {
+                        message = `Natiijada Imtixaanka ${sData.studentName} ${subjectsString} Tot:${sData.totalMarksObtained}/${sData.totalMaxMarks} Grd:${grade}`;
+                    } else {
+                        message = `Natiijada Imtixaanka ${sData.studentName} ${subjectsString} Tot:${sData.totalMarksObtained}/${sData.totalMaxMarks} Cel:${celceliska} Grd:${grade}`;
+                    }
                 }
 
                 smsJobs.push({
