@@ -387,15 +387,17 @@ router.post('/', authenticateToken, authorizeRoles('admin', 'teacher', 'accounta
           const somaliDays = ['Axad', 'Isniin', 'Talaado', 'Arbaco', 'Khamiis', 'Jimce', 'Sabti'];
           const dayName = somaliDays[now.getDay()];
 
-          // Somali date format: "Sabti 26 Bisha 5aad 2026"
-          const somaliDate = `${dayName} ${day} Bisha ${month}aad ${year}`;
+          // Somali date format: "Sabti 11/07/2026"
+          const formattedDay = String(day).padStart(2, '0');
+          const formattedMonth = String(month).padStart(2, '0');
+          const somaliDateStr = `${dayName} ${formattedDay}/${formattedMonth}/${year}`;
 
           // Session Translation
           const sessionMap = {
-            'break1': 'break 1aad',
-            'break2': 'break 2aad',
-            'break 1': 'break 1aad',
-            'break 2': 'break 2aad',
+            'break1': 'fadhiga 1aad',
+            'break2': 'fadhiga 2aad',
+            'break 1': 'fadhiga 1aad',
+            'break 2': 'fadhiga 2aad',
             'morning': 'subaxii',
             'afternoon': 'galabtii',
             'night': 'habeenkii'
@@ -433,7 +435,7 @@ router.post('/', authenticateToken, authorizeRoles('admin', 'teacher', 'accounta
             const studentName = studentInfo?.user?.name || 'Ardayga';
 
             if (parentPhone) {
-              const msg = `${schoolDisplayName}: Waalid ${studentName} ${timeLabel} ${instLabel} ma imaan ${sessionSomali} fadlan la xiriir maamulaha ${instLabel} ${adminPhone}`;
+              const msg = `${schoolDisplayName}: Waalid ${studentName} ${timeLabel} ${instLabel} ma imaan ${sessionSomali} ${somaliDateStr} fadlan la xiriir maamulaha ${adminPhone}`;
               smsJobs.push({
                 phone: parentPhone,
                 message: msg,
@@ -447,7 +449,7 @@ router.post('/', authenticateToken, authorizeRoles('admin', 'teacher', 'accounta
             // Push notification (fire-and-forget per student)
             if (parent?.user?.fcmToken) {
               const title = 'Maqnaansho Arday';
-              const body = `Ogeysiis: ${studentName} ${timeLabel} ${instLabel} ma soo xaadirin fadhiga ${sessionSomali}.`;
+              const body = `Ogeysiis: ${studentName} ${timeLabel} ${instLabel} ma soo xaadirin ${sessionSomali} ${somaliDateStr}.`;
               console.log(`[AttendanceNotification] Sending push to parent: ${parent.user.name}, Token: ${parent.user.fcmToken.substring(0, 10)}...`);
               sendPushNotification([parent.user.fcmToken], title, body, { type: 'attendance', studentId: studentInfo.id })
                 .then(() => console.log(`[AttendanceNotification] Push success for ${studentName}`))
@@ -459,7 +461,7 @@ router.post('/', authenticateToken, authorizeRoles('admin', 'teacher', 'accounta
             // In-app DB notification
             if (parent?.userId) {
               const title = 'Maqnaansho Arday';
-              const body = `Ogeysiis: ${studentName} ${timeLabel} ${instLabel} ma soo xaadirin fadhiga ${sessionSomali}.`;
+              const body = `Ogeysiis: ${studentName} ${timeLabel} ${instLabel} ma soo xaadirin ${sessionSomali} ${somaliDateStr}.`;
               createNotification({
                 userId: parent.userId,
                 title,
