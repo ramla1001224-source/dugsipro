@@ -2261,7 +2261,7 @@ router.post('/send-bulk-sms', authenticateToken, authorizeRoles('admin', 'super_
                     const grandMax = sData.finalMaxMarks + sData.midtermMaxMarks;
                     const celceliska = (grandTotal / 2).toFixed(1);
                     const grade = calculateGrade(grandTotal, grandMax, gradingScales);
-                    const status = grade === 'F' ? 'Dhacay' : 'Gudbay';
+                    const status = grade === 'F' ? 'Xaalada: Dhacay' : 'Xaalada: Gudbay';
 
                     message = `Natiijada Imtixaanka ${sData.studentName} ${subjectsString} Tot:${grandTotal}/${grandMax} Cel:${celceliska} ${status}`;
                 } else {
@@ -2271,7 +2271,7 @@ router.post('/send-bulk-sms', authenticateToken, authorizeRoles('admin', 'super_
                         
                     const celceliska = (sData.totalMarksObtained / 2).toFixed(1);
                     const grade = calculateGrade(sData.totalMarksObtained, sData.totalMaxMarks, gradingScales);
-                    const status = grade === 'F' ? 'Dhacay' : 'Gudbay';
+                    const status = grade === 'F' ? 'Xaalada: Dhacay' : 'Xaalada: Gudbay';
 
                     if (effectiveSmsType === 'term') {
                         message = `Natiijada Imtixaanka ${sData.studentName} ${subjectsString} Tot:${sData.totalMarksObtained}/${sData.totalMaxMarks} ${status}`;
