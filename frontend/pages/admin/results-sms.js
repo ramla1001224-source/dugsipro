@@ -11,6 +11,11 @@ export default function ResultsSMS() {
     const [loading, setLoading] = useState(true)
     const [sending, setSending] = useState({})
     const [smsType, setSmsType] = useState('term') // 'term', 'final_100', 'final_midterm'
+    const [includeSchoolName, setIncludeSchoolName] = useState(false)
+    const [expandedClassId, setExpandedClassId] = useState(null)
+    const [classStudents, setClassStudents] = useState({}) 
+    const [previewLoading, setPreviewLoading] = useState({})
+    const [excludedStudentIds, setExcludedStudentIds] = useState(new Set())
     const [smsStatus, setSmsStatus] = useState({})
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4001'
     const headers = () => ({ Authorization: `Bearer ${localStorage.getItem('token')}` })
@@ -63,6 +68,54 @@ export default function ResultsSMS() {
         }
     }, [selectedTerm, smsType, academicYears]);
 
+    const handleToggleStudents = async (group) => {
+        if (expandedClassId === group.classId) {
+            setExpandedClassId(null);
+            return;
+        }
+        
+        setExpandedClassId(group.classId);
+        if (!classStudents[group.classId]) {
+            setPreviewLoading(prev => ({ ...prev, [group.classId]: true }));
+            try {
+                let academicYearId = null;
+                if (selectedTerm?.startsWith('YEAR_')) {
+                    academicYearId = selectedTerm.replace('YEAR_', '');
+                } else {
+                    for (const year of academicYears) {
+                        if (year.Terms?.some(t => t.id === selectedTerm)) {
+                            academicYearId = year.id;
+                            break;
+                        }
+                    }
+                }
+                
+                const examIds = group.exams.map(e => e.id);
+                const res = await axios.post(`${apiUrl}/api/exams/send-bulk-sms`, { 
+                    examIds, 
+                    smsType, 
+                    academicYearId,
+                    previewOnly: true
+                }, { headers: headers() });
+                
+                setClassStudents(prev => ({ ...prev, [group.classId]: res.data.students || [] }));
+            } catch (err) {
+                console.error("Preview fetch error", err);
+            } finally {
+                setPreviewLoading(prev => ({ ...prev, [group.classId]: false }));
+            }
+        }
+    }
+    
+    const handleToggleStudentExclude = (studentId) => {
+        setExcludedStudentIds(prev => {
+            const next = new Set(prev);
+            if (next.has(studentId)) next.delete(studentId);
+            else next.add(studentId);
+            return next;
+        });
+    }
+
     const handleSendBulkSMS = async (group) => {
         if (!group.allPublished) {
             alert('Waa in la daabacaa (Publish) dhammaan maaddooyinka fasalkan kahor intaan la dirin Natiijada!');
@@ -96,7 +149,9 @@ export default function ResultsSMS() {
             const res = await axios.post(`${apiUrl}/api/exams/send-bulk-sms`, { 
                 examIds, 
                 smsType, 
-                academicYearId 
+                academicYearId,
+                includeSchoolName,
+                excludedStudentIds: Array.from(excludedStudentIds)
             }, { headers: headers() });
             alert(res.data.message || 'SMS dirista wadar ahaaneed waa la dhameeyay');
             fetchSmsStatus();
@@ -156,6 +211,15 @@ export default function ResultsSMS() {
                 </div>
 
                 <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
+                    <label className="flex items-center gap-3 text-sm font-bold text-slate-700 bg-white p-4 rounded-2xl border-2 border-slate-100 shadow-sm cursor-pointer hover:border-indigo-500 transition-all">
+                        <input 
+                            type="checkbox" 
+                            className="w-5 h-5 accent-indigo-600 rounded cursor-pointer"
+                            checked={includeSchoolName}
+                            onChange={e => setIncludeSchoolName(e.target.checked)}
+                        />
+                        Ku dar Magaca Schoolka
+                    </label>
                     <select
                         className="w-full md:w-auto p-4 rounded-2xl border-2 border-slate-100 bg-white font-bold text-slate-700 focus:border-indigo-500 outline-none transition-all shadow-sm"
                         value={smsType}
@@ -245,6 +309,51 @@ export default function ResultsSMS() {
                                     </div>
                                 )}
                             </div>
+
+                            <button
+                                onClick={() => handleToggleStudents(group)}
+                                className="w-full mb-3 py-2 rounded-xl border-2 border-slate-100 font-bold text-xs uppercase tracking-widest text-slate-600 hover:bg-slate-50 transition-all flex items-center justify-between px-4"
+                            >
+                                <span>{expandedClassId === group.classId ? 'Qari Ardayda' : 'Eeg Ardayda'}</span>
+                                <span>{expandedClassId === group.classId ? '▲' : '▼'}</span>
+                            </button>
+
+                            {expandedClassId === group.classId && (
+                                <div className="mb-4 bg-slate-50 rounded-xl p-3 max-h-60 overflow-y-auto border border-slate-100">
+                                    {previewLoading[group.classId] ? (
+                                        <div className="flex justify-center p-4">
+                                            <div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+                                        </div>
+                                    ) : (classStudents[group.classId] || []).length === 0 ? (
+                                        <p className="text-center text-xs text-slate-400 font-bold py-2">Arday lama helin</p>
+                                    ) : (
+                                        <div className="space-y-2">
+                                            <div className="flex justify-between items-center mb-2 px-1">
+                                                <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Magaca Ardayga</span>
+                                                <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Dir SMS</span>
+                                            </div>
+                                            {(classStudents[group.classId] || []).map(st => (
+                                                <label key={st.id} className="flex justify-between items-center bg-white p-2 rounded-lg shadow-sm border border-slate-100 cursor-pointer hover:border-indigo-300">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className={`w-2 h-2 rounded-full ${st.hasPhone ? 'bg-emerald-500' : 'bg-red-500'}`} title={st.hasPhone ? 'Wuxuu leeyahay Number' : 'Number ma leh'}></div>
+                                                        <span className="text-xs font-bold text-slate-700 truncate w-32" title={st.name}>{st.name}</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        {st.isAlreadySent && <span className="text-[8px] bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded font-bold uppercase">La diray</span>}
+                                                        <input 
+                                                            type="checkbox" 
+                                                            className="w-4 h-4 accent-indigo-600 rounded cursor-pointer"
+                                                            checked={!excludedStudentIds.has(st.id)}
+                                                            onChange={() => handleToggleStudentExclude(st.id)}
+                                                            disabled={!st.hasPhone}
+                                                        />
+                                                    </div>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
 
                             <button
                                 onClick={() => handleSendBulkSMS(group)}

@@ -432,7 +432,7 @@ router.post('/', authenticateToken, authorizeRoles('admin', 'teacher', 'accounta
             const studentName = studentInfo?.user?.name || 'Ardayga';
 
             if (parentPhone) {
-              const msg = `Waalid ${studentName} maanta ${instLabel} ma imaan ${sessionSomali} fadlan la xiriir maamulaha ${instLabel} ${adminPhone}`;
+              const msg = `${schoolDisplayName}: Waalid ${studentName} maanta ${instLabel} ma imaan ${sessionSomali} fadlan la xiriir maamulaha ${instLabel} ${adminPhone}`;
               smsJobs.push({
                 phone: parentPhone,
                 message: msg,

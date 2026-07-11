@@ -2065,7 +2065,7 @@ router.delete('/:id', authenticateToken, authorizeRoles('admin', 'super_admin', 
 // Bulk Send Exam Results via SMS (Combined Subjects per Student)
 router.post('/send-bulk-sms', authenticateToken, authorizeRoles('admin', 'super_admin', 'owner'), async (req, res) => {
     try {
-        const { examIds, smsType, isFinal, academicYearId } = req.body;
+        const { examIds, smsType, isFinal, academicYearId, includeSchoolName, excludedStudentIds, previewOnly } = req.body;
         const effectiveSmsType = smsType || (isFinal ? 'final_100' : 'term');
         if (!examIds || !Array.isArray(examIds) || examIds.length === 0) {
             return res.status(400).json({ message: 'Exam IDs are required' });
@@ -2242,6 +2242,11 @@ router.post('/send-bulk-sms', authenticateToken, authorizeRoles('admin', 'super_
                 continue;
             }
 
+            if (excludedStudentIds && Array.isArray(excludedStudentIds) && excludedStudentIds.includes(studentId)) {
+                skipCount++;
+                continue;
+            }
+
             if (sData.parentPhone) {
                 let message = '';
                 
@@ -2273,6 +2278,10 @@ router.post('/send-bulk-sms', authenticateToken, authorizeRoles('admin', 'super_
                     }
                 }
 
+                if (includeSchoolName) {
+                    message = `${schoolDisplayName}: ${message}`;
+                }
+
                 smsJobs.push({
                     phone: sData.parentPhone,
                     message: message,
@@ -2287,7 +2296,17 @@ router.post('/send-bulk-sms', authenticateToken, authorizeRoles('admin', 'super_
             }
         }
 
-        // 5. Enqueue all jobs at once (background processing)
+        // 5. Handle Preview or Enqueue Jobs
+        if (previewOnly) {
+            const previewList = Array.from(studentMap.entries()).map(([id, data]) => ({
+                id,
+                name: data.studentName,
+                hasPhone: !!data.parentPhone,
+                isAlreadySent: alreadySentStudentIds.has(id)
+            }));
+            return res.json({ students: previewList });
+        }
+
         if (smsJobs.length > 0) {
             console.log(`[SMSQueue] Bulk Send Results: Enqueueing ${smsJobs.length} jobs.`);
             enqueueBulkSMS(smsJobs);
