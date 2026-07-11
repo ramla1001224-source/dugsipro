@@ -328,9 +328,38 @@ export default function ResultsSMS() {
                                         <p className="text-center text-xs text-slate-400 font-bold py-2">Arday lama helin</p>
                                     ) : (
                                         <div className="space-y-2">
-                                            <div className="flex justify-between items-center mb-2 px-1">
+                                            <div className="flex justify-between items-center mb-2 px-1 border-b border-slate-100 pb-2">
                                                 <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Magaca Ardayga</span>
-                                                <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Dir SMS</span>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest cursor-pointer" title="Dooro Dhammaan">Wada Dooro</span>
+                                                    <input 
+                                                        type="checkbox" 
+                                                        className="w-4 h-4 accent-indigo-600 rounded cursor-pointer"
+                                                        checked={
+                                                            (classStudents[group.classId] || [])
+                                                                .filter(st => st.hasPhone)
+                                                                .length > 0 &&
+                                                            (classStudents[group.classId] || [])
+                                                                .filter(st => st.hasPhone)
+                                                                .every(st => !excludedStudentIds.has(st.id))
+                                                        }
+                                                        onChange={(e) => {
+                                                            const isChecked = e.target.checked;
+                                                            setExcludedStudentIds(prev => {
+                                                                const next = new Set(prev);
+                                                                const groupStudents = (classStudents[group.classId] || []).filter(st => st.hasPhone);
+                                                                groupStudents.forEach(st => {
+                                                                    if (isChecked) {
+                                                                        next.delete(st.id); // Include them
+                                                                    } else {
+                                                                        next.add(st.id); // Exclude them
+                                                                    }
+                                                                });
+                                                                return next;
+                                                            });
+                                                        }}
+                                                    />
+                                                </div>
                                             </div>
                                             {(classStudents[group.classId] || []).map(st => (
                                                 <label key={st.id} className="flex justify-between items-center bg-white p-2 rounded-lg shadow-sm border border-slate-100 cursor-pointer hover:border-indigo-300">
