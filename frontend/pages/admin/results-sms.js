@@ -10,6 +10,7 @@ export default function ResultsSMS() {
     const [selectedTerm, setSelectedTerm] = useState('')
     const [loading, setLoading] = useState(true)
     const [sending, setSending] = useState({})
+    const [isSendingAll, setIsSendingAll] = useState(false)
     const [smsType, setSmsType] = useState('term') // 'term', 'final_100', 'final_midterm'
     const [includeSchoolName, setIncludeSchoolName] = useState(false)
     const [expandedClassId, setExpandedClassId] = useState(null)
@@ -116,10 +117,10 @@ export default function ResultsSMS() {
         });
     }
 
-    const handleSendBulkSMS = async (group) => {
+    const handleSendBulkSMS = async (group, skipConfirm = false, skipAlert = false) => {
         if (!group.allPublished) {
-            alert('Waa in la daabacaa (Publish) dhammaan maaddooyinka fasalkan kahor intaan la dirin Natiijada!');
-            return;
+            if (!skipAlert) alert(`Waa in la daabacaa (Publish) dhammaan maaddooyinka fasalkan kahor intaan la dirin Natiijada fasalka ${group.className}!`);
+            return false;
         }
         
         let academicYearId = null;
@@ -134,14 +135,16 @@ export default function ResultsSMS() {
             }
         }
 
-        const termLabel = academicYears.flatMap(y => y.Terms || []).find(t => t.id === selectedTerm)?.name || 'Term';
-        const confirmMsg = smsType === 'final_100'
-            ? `Ma hubtaa inaad rabto in SMS loo diro waalidiinta fasalka "${group.className}" iyadoo la isku darayo NATIIJADA SANNADKA OO DHAN (Final 100%)?`
-            : smsType === 'final_midterm'
-            ? `Ma hubtaa inaad rabto in SMS loo diro waalidiinta fasalka "${group.className}" iyadoo la isku darayo (Term + Midterm)?`
-            : `Ma hubtaa inaad rabto in SMS wadar ah (Bulk) loo diro waalidiinta fasalka "${group.className}" ee imtixaanka "${termLabel}"?`;
+        if (!skipConfirm) {
+            const termLabel = academicYears.flatMap(y => y.Terms || []).find(t => t.id === selectedTerm)?.name || 'Term';
+            const confirmMsg = smsType === 'final_100'
+                ? `Ma hubtaa inaad rabto in SMS loo diro waalidiinta fasalka "${group.className}" iyadoo la isku darayo NATIIJADA SANNADKA OO DHAN (Final 100%)?`
+                : smsType === 'final_midterm'
+                ? `Ma hubtaa inaad rabto in SMS loo diro waalidiinta fasalka "${group.className}" iyadoo la isku darayo (Term + Midterm)?`
+                : `Ma hubtaa inaad rabto in SMS wadar ah (Bulk) loo diro waalidiinta fasalka "${group.className}" ee imtixaanka "${termLabel}"?`;
 
-        if (!confirm(confirmMsg)) return;
+            if (!confirm(confirmMsg)) return false;
+        }
         
         setSending(prev => ({ ...prev, [group.classId]: true }))
         try {
@@ -153,13 +156,44 @@ export default function ResultsSMS() {
                 includeSchoolName,
                 excludedStudentIds: Array.from(excludedStudentIds)
             }, { headers: headers() });
-            alert(res.data.message || 'SMS dirista wadar ahaaneed waa la dhameeyay');
-            fetchSmsStatus();
+            if (!skipAlert) alert(res.data.message || 'SMS dirista wadar ahaaneed waa la dhameeyay');
+            await fetchSmsStatus();
+            return true;
         } catch (err) {
-            alert(err.response?.data?.message || 'Cillad ayaa ku timid diridda SMS-ka');
+            if (!skipAlert) alert(err.response?.data?.message || 'Cillad ayaa ku timid diridda SMS-ka');
+            return false;
         } finally {
             setSending(prev => ({ ...prev, [group.classId]: false }))
         }
+    }
+
+    const handleSendAllBulkSMS = async () => {
+        const readyGroups = classCards.filter(g => g.allPublished);
+        if (readyGroups.length === 0) {
+            alert('Fasal diyaar ah oo la wada daabacay (Published) lama helin. Fadlan daabac fasallada intaanad dirin.');
+            return;
+        }
+
+        const confirmMsg = `Ma hubtaa inaad rabto in SMS loo wada diro DHAMMAAN FASALADA diyaar ah (${readyGroups.length} fasal)?
+Fasallada aan la wada daabicin (Qabyada ah) waa la iska dhaafi doonaa.
+Fasalba fasalka xiga ayuu ku xigsan doonaa dirista automatically.`;
+
+        if (!confirm(confirmMsg)) return;
+
+        setIsSendingAll(true);
+        let successCount = 0;
+        
+        for (const group of readyGroups) {
+            const success = await handleSendBulkSMS(group, true, true);
+            if (success) {
+                successCount++;
+                // Wait briefly between class requests
+                await new Promise(res => setTimeout(res, 500));
+            }
+        }
+        
+        alert(`Dirista Dhammaan Fasalada waa la dhammeeyay. La guulaystay ${successCount}/${readyGroups.length} fasal. Status-kooda hoos ka eeg.`);
+        setIsSendingAll(false);
     }
 
     const filteredExams = smsType === 'final_100'
@@ -267,7 +301,33 @@ export default function ResultsSMS() {
                     <p className="text-slate-400 max-w-sm mx-auto font-bold uppercase text-xs tracking-widest">Lama hayo imtixaanno ku jira term-kan ama qaybtan la xushay.</p>
                 </div>
             ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <>
+                    <div className="flex justify-end mb-6">
+                        <button
+                            onClick={handleSendAllBulkSMS}
+                            disabled={isSendingAll || classCards.filter(g => g.allPublished).length === 0}
+                            className={`px-8 py-4 rounded-2xl font-black uppercase tracking-widest transition-all flex items-center justify-center gap-3 shadow-xl ${
+                                isSendingAll 
+                                    ? 'bg-slate-200 text-slate-500 cursor-not-allowed' 
+                                    : classCards.filter(g => g.allPublished).length > 0 
+                                        ? 'bg-indigo-600 text-white hover:bg-indigo-700 hover:-translate-y-1 hover:shadow-indigo-200' 
+                                        : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                            }`}
+                        >
+                            {isSendingAll ? (
+                                <>
+                                    <div className="w-5 h-5 border-2 border-slate-500 border-t-transparent rounded-full animate-spin"></div>
+                                    <span>Waa Socotaa...</span>
+                                </>
+                            ) : (
+                                <>
+                                    <span>DIR DHAMMAAN FASALADA</span>
+                                    <span className="text-xl">🚀</span>
+                                </>
+                            )}
+                        </button>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                     {classCards.map(group => (
                         <div key={group.classId} className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100 hover:shadow-xl transition-all group overflow-hidden relative">
                             <div className={`absolute top-0 right-0 w-24 h-24 -mr-8 -mt-8 rounded-full opacity-5 group-hover:scale-150 transition-transform ${group.allPublished ? 'bg-emerald-500' : 'bg-red-500'}`}></div>

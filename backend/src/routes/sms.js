@@ -26,17 +26,30 @@ router.get('/debug-logs', async (req, res) => {
 });
 
 // ==================== SMS QUEUE STATS ====================
-// Shows how many messages are currently queued and whether processing is active.
+// Shows live progress of SMS queue processing.
+// Poll this every 5-10s during a bulk send to monitor delivery.
 router.get('/queue-stats', authenticateToken, authorizeRoles('admin', 'owner', 'super_admin'), (req, res) => {
     const stats = getQueueStats();
+
+    let statusMessage = 'Queue is empty. No pending messages.';
+    if (stats.isProcessing) {
+        statusMessage = `Dirista waa socotaa... ${stats.totalSent} la diray, ${stats.totalFailed} fashilmay, ${stats.pending} kuu sugaya.`;
+    } else if (stats.pending > 0) {
+        statusMessage = `Queue waa joogy. ${stats.pending} fariimo ayaa sugaysa.`;
+    } else if (stats.completedAt) {
+        statusMessage = `La dhammeeyay. ${stats.totalSent} la diray, ${stats.totalFailed} fashilmay.`;
+    }
+
     res.json({
         pending: stats.pending,
         isProcessing: stats.isProcessing,
-        message: stats.isProcessing
-            ? `SMS queue is active. ${stats.pending} messages waiting.`
-            : stats.pending > 0
-                ? `Queue is paused with ${stats.pending} messages waiting.`
-                : 'Queue is empty. No pending messages.'
+        totalQueued: stats.totalQueued,
+        totalSent: stats.totalSent,
+        totalFailed: stats.totalFailed,
+        progressPercent: stats.progressPercent,
+        startedAt: stats.startedAt,
+        completedAt: stats.completedAt,
+        message: statusMessage
     });
 });
 

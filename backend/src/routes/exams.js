@@ -2383,8 +2383,9 @@ router.post('/:examId/send-sms', authenticateToken, authorizeRoles('admin', 'sup
             return res.status(400).json({ message: 'No results found for this exam to send' });
         }
 
-        let sentCount = 0;
-        let skipCount = 0;
+        // FIXED: Was a sequential for-await loop — blocked HTTP for minutes with large classes.
+        // Now uses enqueueBulkSMS for non-blocking background queue processing.
+        const smsJobs = [];
 
         for (const r of results) {
             const student = r.student;
@@ -2401,16 +2402,26 @@ router.post('/:examId/send-sms', authenticateToken, authorizeRoles('admin', 'sup
                 const grade = r.grade || 'N/A';
                 const message = `Natiijada Imtixaanka ${studentName} ${subjShort}:${marks} Tot:${marks}/${total} Cel:${celceliska} Grd:${grade}`;
 
-                const smsResult = await sendGolisSMS(parentPhone, message);
-                if (smsResult.success) sentCount++;
-                else skipCount++;
+                smsJobs.push({
+                    phone: parentPhone,
+                    message,
+                    schoolId: exam.schoolId,
+                    studentId: student.id,
+                    studentName: studentName,
+                    type: 'exam_result'
+                });
+                sentCount++;
             } else {
                 skipCount++;
             }
         }
 
+        if (smsJobs.length > 0) {
+            enqueueBulkSMS(smsJobs);
+        }
+
         return res.json({
-            message: `SMS Sent successfully to ${sentCount} parents. Skipped ${skipCount} (no phone number/error).`,
+            message: `Queued ${sentCount} SMS messages for background delivery. Skipped ${skipCount} (no phone number).`,
             sent: sentCount,
             skipped: skipCount
         });

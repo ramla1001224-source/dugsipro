@@ -5,6 +5,23 @@ const prisma = require('../prisma');
  * Universal SMS Service for Somali Gateways
  * Tracks usage per school and logs history.
  */
+
+// In-memory config cache to avoid hitting DB for every SMS during bulk sends.
+// Cache expires every 30 seconds so config changes are picked up promptly.
+let _configCache = null;
+let _configCacheExpiry = 0;
+
+const getCachedConfigs = async () => {
+    const now = Date.now();
+    if (_configCache && now < _configCacheExpiry) {
+        return _configCache;
+    }
+    const configs = await prisma.globalSetting.findMany();
+    _configCache = configs;
+    _configCacheExpiry = now + 30_000; // 30 second TTL
+    return configs;
+};
+
 const sendSMS = async (phoneNumber, message, options = {}) => {
     const { schoolId, studentId, type = 'generic' } = options;
     
@@ -33,8 +50,8 @@ const sendSMS = async (phoneNumber, message, options = {}) => {
             }
         }
 
-        // 2. Fetch Global Configuration from Database
-        const configs = await prisma.globalSetting.findMany();
+        // 2. Fetch Global Configuration from Database (cached for 30s to avoid DB hammering during bulk sends)
+        const configs = await getCachedConfigs();
         const getConf = (k) => configs.find(c => c.key === k)?.value;
 
         // Detect active provider
@@ -94,20 +111,31 @@ const sendSMS = async (phoneNumber, message, options = {}) => {
                 }
 
                 const response = await axios.post(finalUrl, payload, { headers, timeout: 15000 });
-                console.log(`[SMS] ${activeProvider.toUpperCase()} request to: ${finalUrl}`);
-                console.log(`[SMS] ${activeProvider.toUpperCase()} response:`, response.data);
-                
-                // Check for common success indicators in Somali gateways
                 const resStr = JSON.stringify(response.data).toLowerCase();
-                if (resStr.includes('success') || resStr.includes('sent') || resStr.includes('"true"') || response.data?.success === true || response.status === 200) {
+
+                // GOLIS NOTE: Golis returns HTTP 200 even for rate-limit or rejected messages.
+                // We must check the body, not just the HTTP status code.
+                console.log(`[SMS] ${activeProvider.toUpperCase()} → ${phoneNumber} | Status: ${response.status} | Body: ${resStr.substring(0, 200)}`);
+                
+                // Check for success keywords in the response body
+                const isSuccess = resStr.includes('success') || 
+                                  resStr.includes('sent') || 
+                                  resStr.includes('"true"') || 
+                                  response.data?.success === true ||
+                                  response.data?.status === 'sent' ||
+                                  response.data?.status === 'queued';
+
+                if (isSuccess) {
                     success = true;
                 } else {
-                    result.error = `API Response: ${resStr}`;
+                    result.error = `Golis rejected: ${resStr.substring(0, 300)}`;
+                    console.warn(`[SMS WARN] ${activeProvider.toUpperCase()} did not confirm delivery to ${phoneNumber}: ${resStr.substring(0, 200)}`);
                 }
             } catch (err) {
                 const errorMsg = err.response?.data ? JSON.stringify(err.response.data) : err.message;
-                console.error(`[SMS API Error - ${activeProvider}]:`, errorMsg);
-                result.error = errorMsg;
+                const httpStatus = err.response?.status;
+                console.error(`[SMS API Error - ${activeProvider}] ${phoneNumber} | HTTP ${httpStatus || 'N/A'} | ${errorMsg}`);
+                result.error = `HTTP ${httpStatus || 'N/A'}: ${errorMsg}`;
             }
         } else {
             console.log(`[SMS MOCK] Provider: ${activeProvider}, To: ${phoneNumber}, Msg: ${message}`);
