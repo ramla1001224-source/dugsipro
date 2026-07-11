@@ -331,34 +331,36 @@ export default function ResultsSMS() {
                                             <div className="flex justify-between items-center mb-2 px-1 border-b border-slate-100 pb-2">
                                                 <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Magaca Ardayga</span>
                                                 <div className="flex items-center gap-2">
-                                                    <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest cursor-pointer" title="Dooro Dhammaan">Wada Dooro</span>
-                                                    <input 
-                                                        type="checkbox" 
-                                                        className="w-4 h-4 accent-indigo-600 rounded cursor-pointer"
-                                                        checked={
-                                                            (classStudents[group.classId] || [])
-                                                                .filter(st => st.hasPhone)
-                                                                .length > 0 &&
-                                                            (classStudents[group.classId] || [])
-                                                                .filter(st => st.hasPhone)
-                                                                .every(st => !excludedStudentIds.has(st.id))
-                                                        }
-                                                        onChange={(e) => {
-                                                            const isChecked = e.target.checked;
+                                                    <button 
+                                                        onClick={() => {
                                                             setExcludedStudentIds(prev => {
                                                                 const next = new Set(prev);
                                                                 const groupStudents = (classStudents[group.classId] || []).filter(st => st.hasPhone);
-                                                                groupStudents.forEach(st => {
-                                                                    if (isChecked) {
-                                                                        next.delete(st.id); // Include them
-                                                                    } else {
-                                                                        next.add(st.id); // Exclude them
-                                                                    }
-                                                                });
+                                                                // Uncheck all (add to excluded)
+                                                                groupStudents.forEach(st => next.add(st.id));
                                                                 return next;
                                                             });
                                                         }}
-                                                    />
+                                                        className="text-[9px] font-black uppercase text-red-500 hover:text-red-700 bg-red-50 px-2 py-1 rounded transition-colors tracking-widest"
+                                                        title="Tick-ga ka qaad dhammaan"
+                                                    >
+                                                        Qaad Dhammaan
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => {
+                                                            setExcludedStudentIds(prev => {
+                                                                const next = new Set(prev);
+                                                                const groupStudents = (classStudents[group.classId] || []).filter(st => st.hasPhone);
+                                                                // Check all (remove from excluded)
+                                                                groupStudents.forEach(st => next.delete(st.id));
+                                                                return next;
+                                                            });
+                                                        }}
+                                                        className="text-[9px] font-black uppercase text-emerald-600 hover:text-emerald-800 bg-emerald-50 px-2 py-1 rounded transition-colors tracking-widest"
+                                                        title="Tick-ga saar dhammaan"
+                                                    >
+                                                        Saar Dhammaan
+                                                    </button>
                                                 </div>
                                             </div>
                                             {(classStudents[group.classId] || []).map(st => (
