@@ -407,9 +407,10 @@ router.post('/', authenticateToken, authorizeRoles('admin', 'teacher', 'accounta
           const instLabel = instType === 'machad' ? 'machadka' : 'schoolka';
 
           const timeMap = {
-            'morning': 'saaka',
+            'morning': 'maanta',
             'afternoon': 'galabta',
-            'night': 'caawa'
+            'night': 'caawa',
+            'evening': 'caawa'
           };
           const timeLabel = timeMap[String(shift).toLowerCase()] || 'maanta';
 
@@ -432,7 +433,7 @@ router.post('/', authenticateToken, authorizeRoles('admin', 'teacher', 'accounta
             const studentName = studentInfo?.user?.name || 'Ardayga';
 
             if (parentPhone) {
-              const msg = `${schoolDisplayName}: Waalid ${studentName} maanta ${instLabel} ma imaan ${sessionSomali} fadlan la xiriir maamulaha ${instLabel} ${adminPhone}`;
+              const msg = `${schoolDisplayName}: Waalid ${studentName} ${timeLabel} ${instLabel} ma imaan ${sessionSomali} fadlan la xiriir maamulaha ${instLabel} ${adminPhone}`;
               smsJobs.push({
                 phone: parentPhone,
                 message: msg,
