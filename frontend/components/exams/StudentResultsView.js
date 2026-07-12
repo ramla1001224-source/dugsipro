@@ -3,6 +3,21 @@ import { getImageUrl } from '../../utils/imageHelper'
 
 export default function StudentResultsView({ data, years = [], selectedYearId = '', onYearChange = null }) {
     const [schoolInfo, setSchoolInfo] = useState(null)
+    const [showAverage, setShowAverage] = useState(() => {
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem('results_showAverage') !== 'false'
+        }
+        return true
+    })
+
+    const toggleAverage = () => {
+        setShowAverage(prev => {
+            const next = !prev
+            localStorage.setItem('results_showAverage', String(next))
+            return next
+        })
+    }
+
     useEffect(() => {
         const saved = localStorage.getItem('schoolInfo')
         if (saved) setSchoolInfo(JSON.parse(saved))
@@ -122,11 +137,26 @@ export default function StudentResultsView({ data, years = [], selectedYearId = 
                         </div>
                     )}
                 </div>
-                <div className="text-left md:text-right">
-                    <div className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-1">Wadarta Guud (Total)</div>
-                    <div className="text-2xl md:text-3xl font-black text-indigo-400">
-                        {grandTotal}
-                        <span className="text-sm font-bold text-slate-600 ml-1">/{grandMax}</span>
+                <div className="flex flex-col items-end gap-3">
+                    {/* Toggle Celceliska */}
+                    <button
+                        onClick={toggleAverage}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs transition-all border ${
+                            showAverage
+                                ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/30'
+                                : 'bg-white/5 border-white/10 text-slate-400 hover:border-emerald-500/40 hover:text-emerald-300'
+                        }`}
+                        title={showAverage ? 'Qari Celceliska' : 'Muuji Celceliska'}
+                    >
+                        <span>{showAverage ? '✅' : '⬜'}</span>
+                        <span className="uppercase tracking-widest">Celceliska</span>
+                    </button>
+                    <div className="text-left md:text-right">
+                        <div className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-1">Wadarta Guud (Total)</div>
+                        <div className="text-2xl md:text-3xl font-black text-indigo-400">
+                            {grandTotal}
+                            <span className="text-sm font-bold text-slate-600 ml-1">/{grandMax}</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -137,10 +167,12 @@ export default function StudentResultsView({ data, years = [], selectedYearId = 
                     <div className="text-[9px] font-black uppercase tracking-widest text-gray-400 mb-1.5">Total</div>
                     <div className="text-xl font-black text-slate-800">{grandTotal}<span className="text-xs text-slate-400 ml-1 font-bold">/{grandMax}</span></div>
                 </div>
-                <div className="flex flex-col items-center justify-center py-5 px-4 border-r border-gray-100">
-                    <div className="text-[9px] font-black uppercase tracking-widest text-gray-400 mb-1.5">Celceliska</div>
-                    <div className="text-xl font-black text-emerald-600">{Number.isFinite(grandTotal) ? (grandTotal / 2).toFixed(1).replace(/\.0$/, '') : 0}</div>
-                </div>
+                {showAverage && (
+                    <div className="flex flex-col items-center justify-center py-5 px-4 border-r border-gray-100">
+                        <div className="text-[9px] font-black uppercase tracking-widest text-gray-400 mb-1.5">Celceliska</div>
+                        <div className="text-xl font-black text-emerald-600">{Number.isFinite(grandTotal) ? (grandTotal / 2).toFixed(1).replace(/\.0$/, '') : 0}</div>
+                    </div>
+                )}
                 <div className="flex flex-col items-center justify-center py-5 px-4 border-r border-gray-100">
                     <div className="text-[9px] font-black uppercase tracking-widest text-gray-400 mb-1.5">Status</div>
                     <div className={`text-sm font-black px-3 py-1 rounded-full ${isPass ? 'text-emerald-600 bg-emerald-50 border border-emerald-200' : 'text-rose-600 bg-rose-50 border border-rose-200'}`}>

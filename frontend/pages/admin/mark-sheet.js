@@ -15,6 +15,20 @@ export default function MarkSheet() {
     const [filterType, setFilterType] = useState('all')
     const [data, setData] = useState({ markSheet: [], subjects: [] })
     const [loading, setLoading] = useState(false)
+    const [showAverage, setShowAverage] = useState(() => {
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem('marksheet_showAverage') !== 'false'
+        }
+        return true
+    })
+
+    const toggleAverage = () => {
+        setShowAverage(prev => {
+            const next = !prev
+            localStorage.setItem('marksheet_showAverage', String(next))
+            return next
+        })
+    }
 
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4001'
     const headers = () => ({ Authorization: `Bearer ${localStorage.getItem('token')}` })
@@ -322,6 +336,19 @@ export default function MarkSheet() {
                     <p className="text-gray-400 text-sm font-medium">Consolidated academic performance by class</p>
                 </div>
                 <div className="flex gap-3 no-print">
+                    {/* Toggle Celceliska Button */}
+                    <button
+                        onClick={toggleAverage}
+                        className={`flex items-center gap-2 px-5 py-3 rounded-xl font-bold text-sm transition-all border-2 ${
+                            showAverage
+                                ? 'bg-emerald-600 border-emerald-600 text-white shadow-lg shadow-emerald-100 hover:bg-emerald-700'
+                                : 'bg-white border-slate-200 text-slate-500 hover:border-emerald-400 hover:text-emerald-600'
+                        }`}
+                        title={showAverage ? 'Qari Celceliska' : 'Muuji Celceliska'}
+                    >
+                        <span className="text-base">{showAverage ? '✅' : '⬜'}</span>
+                        <span>Celceliska</span>
+                    </button>
                     <button
                         onClick={() => router.push('/admin/exams')}
                         className="bg-gray-100 hover:bg-gray-200 text-gray-600 px-6 py-3 rounded-xl font-bold transition-all"
@@ -452,7 +479,9 @@ export default function MarkSheet() {
                                         </th>
                                     ))}
                                     <th className="px-6 py-4 text-center bg-slate-800">Grand Total</th>
-                                    <th className="px-6 py-4 text-center bg-emerald-700 text-white">Celceliska</th>
+                                    {showAverage && (
+                                        <th className="px-6 py-4 text-center bg-emerald-700 text-white">Celceliska</th>
+                                    )}
                                     <th className="px-6 py-4 text-center bg-indigo-700">Grade</th>
                                 </tr>
                             </thead>
@@ -497,9 +526,11 @@ export default function MarkSheet() {
                                         <td className="px-6 py-4 text-center bg-indigo-600 text-white font-black text-lg print:text-base print:bg-white print:text-indigo-700 print:border-l print:border-indigo-100">
                                             {student.displayTotal}
                                         </td>
-                                        <td className="px-6 py-4 text-center bg-emerald-600 text-white font-black text-lg print:text-base print:bg-white print:text-emerald-700">
-                                            {Number.isFinite(student.displayTotal) ? (student.displayTotal / 2).toFixed(1).replace(/\.0$/, '') : 0}
-                                        </td>
+                                        {showAverage && (
+                                            <td className="px-6 py-4 text-center bg-emerald-600 text-white font-black text-lg print:text-base print:bg-white print:text-emerald-700">
+                                                {Number.isFinite(student.displayTotal) ? (student.displayTotal / 2).toFixed(1).replace(/\.0$/, '') : 0}
+                                            </td>
+                                        )}
                                         <td className="px-6 py-4 text-center bg-indigo-700 text-white font-black text-lg print:text-base print:bg-white print:text-indigo-800">
                                             {student.displayGrade}
                                         </td>
