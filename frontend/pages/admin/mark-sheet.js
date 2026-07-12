@@ -110,7 +110,7 @@ export default function MarkSheet() {
                         <th>Student Name</th>
                         ${data.subjects.map(sub => `<th>${sub.name} (TOT)</th>`).join('')}
                         <th>Grand Total</th>
-                        <th>Celceliska</th>
+                        ${showAverage ? '<th>Celceliska</th>' : ''}
                         <th>Grade</th>
                     </tr>
         `;
@@ -126,7 +126,7 @@ export default function MarkSheet() {
                         return `<td style="text-align: center;">${subData.total}</td>`;
                     }).join('')}
                     <td style="text-align: center; font-weight: bold;">${student.displayTotal}</td>
-                    <td style="text-align: center; font-weight: bold;">${Number.isFinite(student.displayTotal) ? (student.displayTotal / 2).toFixed(1).replace(/\.0$/, '') : 0}</td>
+                    ${showAverage ? `<td style="text-align: center; font-weight: bold;">${Number.isFinite(student.displayTotal) ? (student.displayTotal / 2).toFixed(1).replace(/\.0$/, '') : 0}</td>` : ''}
                     <td style="text-align: center; font-weight: bold;">${student.displayGrade}</td>
                 </tr>
             `;
@@ -180,7 +180,7 @@ export default function MarkSheet() {
                             <th>Student Name</th>
                             ${data.subjects.map(sub => `<th>${sub.name}</th>`).join('')}
                             <th>Grand Total</th>
-                            <th>Celceliska</th>
+                            ${showAverage ? '<th>Celceliska</th>' : ''}
                             <th>Grade</th>
                         </tr>
                     </thead>
@@ -199,7 +199,7 @@ export default function MarkSheet() {
                         return `<td style="text-align: center;">${subData.total}</td>`;
                     }).join('')}
                     <td style="text-align: center;"><b>${student.displayTotal}</b></td>
-                    <td style="text-align: center;"><b>${Number.isFinite(student.displayTotal) ? (student.displayTotal / 2).toFixed(1).replace(/\.0$/, '') : 0}</b></td>
+                    ${showAverage ? `<td style="text-align: center;"><b>${Number.isFinite(student.displayTotal) ? (student.displayTotal / 2).toFixed(1).replace(/\.0$/, '') : 0}</b></td>` : ''}
                     <td style="text-align: center;"><b>${student.displayGrade}</b></td>
                 </tr>
             `;
