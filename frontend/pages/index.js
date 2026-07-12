@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Head from 'next/head'
 import axios from 'axios'
 import { useRouter } from 'next/router'
@@ -15,6 +15,52 @@ export default function Portal() {
 
   const [schools, setSchools] = useState([]) // For multi-school selection
   const [selectedInfo, setSelectedInfo] = useState(null)
+  const [checkingAuth, setCheckingAuth] = useState(true)
+
+  // Auto-redirect: haddii token hore loo keydiyay, toos u celi dashboardka
+  useEffect(() => {
+    try {
+      const token = localStorage.getItem('token')
+      if (token) {
+        const payload = JSON.parse(atob(token.split('.')[1]))
+        const now = Math.floor(Date.now() / 1000)
+        if (payload.exp && payload.exp > now) {
+          // Token wali waa saxan yahay — toos u celi
+          const dashboards = {
+            owner: '/owner/dashboard',
+            super_admin: '/super-admin/dashboard',
+            admin: '/admin/dashboard',
+            teacher: '/teacher/dashboard',
+            parent: '/parent/dashboard',
+            accountant: '/accountant/dashboard',
+            staff: '/staff/dashboard',
+            librarian: '/librarian/dashboard',
+            student: '/student/dashboard'
+          }
+          const role = (payload.role || '').toLowerCase()
+          window.location.replace(dashboards[role] || '/student/dashboard')
+          return
+        } else {
+          // Token waa dhammaatay — nadiifi
+          localStorage.removeItem('token')
+          localStorage.removeItem('role')
+        }
+      }
+    } catch (e) {
+      // Token khaldan — nadiifi
+      localStorage.removeItem('token')
+      localStorage.removeItem('role')
+    }
+    setCheckingAuth(false)
+  }, [])
+
+  if (checkingAuth) {
+    return (
+      <div className="min-h-screen bg-[#0f172a] flex items-center justify-center">
+        <div className="w-12 h-12 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div>
+      </div>
+    )
+  }
 
   const handleEnter = async (e) => {
     if (e) e.preventDefault()

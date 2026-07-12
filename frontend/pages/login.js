@@ -16,6 +16,37 @@ export default function Login() {
     const { t } = useLanguage()
 
     useEffect(() => {
+        // Haddii token hore loo keydiyay, toos u celi dashboardka
+        try {
+            const token = localStorage.getItem('token')
+            if (token) {
+                const payload = JSON.parse(atob(token.split('.')[1]))
+                const now = Math.floor(Date.now() / 1000)
+                if (payload.exp && payload.exp > now) {
+                    const dashboards = {
+                        owner: '/owner/dashboard',
+                        super_admin: '/super-admin/dashboard',
+                        admin: '/admin/dashboard',
+                        teacher: '/teacher/dashboard',
+                        parent: '/parent/dashboard',
+                        accountant: '/accountant/dashboard',
+                        staff: '/staff/dashboard',
+                        librarian: '/librarian/dashboard',
+                        student: '/student/dashboard'
+                    }
+                    const role = (payload.role || '').toLowerCase()
+                    window.location.replace(dashboards[role] || '/student/dashboard')
+                    return
+                } else {
+                    localStorage.removeItem('token')
+                    localStorage.removeItem('role')
+                }
+            }
+        } catch (e) {
+            localStorage.removeItem('token')
+            localStorage.removeItem('role')
+        }
+
         if (router.isReady) {
             const code = router.query.school
             const sId = router.query.schoolId
