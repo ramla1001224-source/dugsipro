@@ -9,6 +9,20 @@ export default function StudentReport() {
     const { id } = router.query
     const [data, setData] = useState(null)
     const [loading, setLoading] = useState(true)
+    const [showAverage, setShowAverage] = useState(() => {
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem('results_showAverage') !== 'false'
+        }
+        return true
+    })
+
+    const toggleAverage = () => {
+        setShowAverage(prev => {
+            const next = !prev
+            localStorage.setItem('results_showAverage', String(next))
+            return next
+        })
+    }
 
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4001'
     const headers = () => ({ Authorization: `Bearer ${localStorage.getItem('token')}` })
@@ -67,13 +81,28 @@ export default function StudentReport() {
                     <button onClick={() => router.back()} className="text-gray-500 font-bold hover:text-indigo-600 flex items-center gap-2">
                         ← Back to List
                     </button>
-                    <button
-                        onClick={handlePrint}
-                        className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3 rounded-xl font-bold shadow-lg shadow-indigo-100 transition-all flex items-center gap-2"
-                    >
-                        <span>Print Report Card</span>
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
-                    </button>
+                    <div className="flex gap-3">
+                        {/* Toggle Celceliska */}
+                        <button
+                            onClick={toggleAverage}
+                            className={`flex items-center gap-2 px-5 py-3 rounded-xl font-bold text-sm transition-all border-2 ${
+                                showAverage
+                                    ? 'bg-emerald-600 border-emerald-600 text-white shadow-lg shadow-emerald-100 hover:bg-emerald-700'
+                                    : 'bg-white border-slate-200 text-slate-500 hover:border-emerald-400 hover:text-emerald-600'
+                            }`}
+                            title={showAverage ? 'Qari Celceliska' : 'Muuji Celceliska'}
+                        >
+                            <span className="text-base">{showAverage ? '✅' : '⬜'}</span>
+                            <span>Celceliska</span>
+                        </button>
+                        <button
+                            onClick={handlePrint}
+                            className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3 rounded-xl font-bold shadow-lg shadow-indigo-100 transition-all flex items-center gap-2"
+                        >
+                            <span>Print Report Card</span>
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
+                        </button>
+                    </div>
                 </div>
 
                 <div className="bg-white rounded-[3rem] shadow-2xl overflow-hidden border border-gray-100 print:shadow-none print:border-none print:rounded-none">
@@ -163,10 +192,12 @@ export default function StudentReport() {
                                             <td colSpan={1} className="px-6 py-6 text-center font-black text-3xl text-indigo-600">
                                                 {grandTotal}
                                             </td>
-                                            <td className="px-6 py-6 text-center font-black text-2xl text-emerald-600 bg-emerald-50/30">
-                                                <div className="text-[10px] text-emerald-500 mb-1 uppercase tracking-widest">Celceliska</div>
-                                                {Number.isFinite(grandTotal) ? (grandTotal / 2).toFixed(1).replace(/\.0$/, '') : '0'}
-                                            </td>
+                                            {showAverage && (
+                                                <td className="px-6 py-6 text-center font-black text-2xl text-emerald-600 bg-emerald-50/30">
+                                                    <div className="text-[10px] text-emerald-500 mb-1 uppercase tracking-widest">Celceliska</div>
+                                                    {Number.isFinite(grandTotal) ? (grandTotal / 2).toFixed(1).replace(/\.0$/, '') : '0'}
+                                                </td>
+                                            )}
                                             <td className="px-6 py-6 text-center font-black text-3xl text-indigo-700">
                                                 {data.grade || '-'}
                                             </td>
