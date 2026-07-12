@@ -479,6 +479,7 @@ Fasalba fasalka xiga ayuu ku xigsan doonaa dirista automatically.`;
                         </div>
                     ))}
                 </div>
+                </>
             )}
         </Layout>
     )
