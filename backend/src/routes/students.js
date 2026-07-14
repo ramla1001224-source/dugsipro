@@ -14,7 +14,7 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 *
 // ==================== GET ALL STUDENTS ====================
 router.get('/', authenticateToken, authorizeRoles('admin', 'teacher', 'accountant', 'librarian', 'super_admin', 'owner'), requireSchoolAccess(), async (req, res) => {
   try {
-    const { classId, sectionId, search, page, limit } = req.query;
+    const { classId, sectionId, search, page, limit, sortBy, order } = req.query;
     let schoolId = req.query.schoolId || req.user.schoolId;
 
     // If schoolId is missing from token, recover from User record
@@ -63,6 +63,13 @@ router.get('/', authenticateToken, authorizeRoles('admin', 'teacher', 'accountan
     const l = Number(limit) || 200;
     const skip = (p - 1) * l;
 
+    let queryOrderBy = { student: { student_id: 'asc' } };
+    if (sortBy === 'name') {
+      queryOrderBy = { student: { user: { name: order === 'desc' ? 'desc' : 'asc' } } };
+    } else if (sortBy === 'id') {
+      queryOrderBy = { student: { student_id: order === 'desc' ? 'desc' : 'asc' } };
+    }
+
     const [enrollments, total] = await Promise.all([
       prisma.enrollment.findMany({
         where,
@@ -73,7 +80,7 @@ router.get('/', authenticateToken, authorizeRoles('admin', 'teacher', 'accountan
         },
         skip,
         take: l,
-        orderBy: { student: { student_id: 'asc' } }
+        orderBy: queryOrderBy
       }),
       prisma.enrollment.count({ where })
     ]);
@@ -415,19 +422,19 @@ router.post('/create', authenticateToken, authorizeRoles('admin', 'owner', 'supe
 });
 
 // ==================== DOWNLOAD EXCEL TEMPLATE ====================
-router.get('/template', authenticateToken, authorizeRoles('admin', 'owner'), (req, res) => {
+router.get('/template', authenticateToken, authorizeRoles('admin', 'owner', 'super_admin'), (req, res) => {
   const wb = XLSX.utils.book_new();
   // Student ID column is optional — if filled, system uses it; if empty, auto-generates
-  const headers = [['Student ID (Optional)', 'Name', 'Password', 'Class', 'Phone', 'Address', 'Gender', 'Date of Birth']];
+  const headers = [['Student ID (Optional)', 'Name', 'Password', 'Class', 'Phone', 'Address', 'Gender', 'Date of Birth', 'Parent Phone']];
   // Add example rows: one with custom ID, one without (auto-generate)
-  headers.push(['STU-001', 'Ahmed Mohamed', 'pass1234', 'Grade 10A', '0612345678', 'Garowe', 'Male', '2008-05-15']);
-  headers.push(['', 'Fadumo Ali', 'pass5678', 'Grade 10A', '0623456789', 'Bosaso', 'Female', '2009-03-20']);
+  headers.push(['STU-001', 'Ahmed Mohamed', 'pass1234', 'Grade 10A', '0612345678', 'Garowe', 'Male', '2008-05-15', '0611111111']);
+  headers.push(['', 'Fadumo Ali', 'pass5678', 'Grade 10A', '0623456789', 'Bosaso', 'Female', '2009-03-20', '0622222222']);
   const ws = XLSX.utils.aoa_to_sheet(headers);
 
   // Set column widths
   ws['!cols'] = [
     { wch: 22 }, { wch: 20 }, { wch: 15 }, { wch: 12 },
-    { wch: 15 }, { wch: 20 }, { wch: 10 }, { wch: 15 }
+    { wch: 15 }, { wch: 20 }, { wch: 10 }, { wch: 15 }, { wch: 15 }
   ];
 
   XLSX.utils.book_append_sheet(wb, ws, 'Students');
@@ -450,7 +457,7 @@ const getValue = (row, possibleKeys) => {
 };
 
 // ==================== BULK IMPORT FROM EXCEL ====================
-router.post('/import', authenticateToken, authorizeRoles('admin', 'owner'), requireSchoolAccess(), upload.single('file'), async (req, res) => {
+router.post('/import', authenticateToken, authorizeRoles('admin', 'owner', 'super_admin'), requireSchoolAccess(), upload.single('file'), async (req, res) => {
   const schoolId = req.user.schoolId;
   try {
     if (!req.file) return res.status(400).json({ message: 'No file uploaded' });

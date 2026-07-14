@@ -2273,7 +2273,9 @@ router.post('/send-bulk-sms', authenticateToken, authorizeRoles('admin', 'super_
                     const grade = calculateGrade(sData.totalMarksObtained, sData.totalMaxMarks, gradingScales);
                     const status = grade === 'F' ? 'Xaalada: Dhacay' : 'Xaalada: Gudbay';
 
-                    if (effectiveSmsType === 'term' || effectiveSmsType === 'final_100') {
+                    if (effectiveSmsType === 'term') {
+                        message = `Natiijada Imtixaanka ${sData.studentName} ${subjectsString} Tot:${sData.totalMarksObtained}/${sData.totalMaxMarks} Grade:${grade}`;
+                    } else if (effectiveSmsType === 'final_100') {
                         message = `Natiijada Imtixaanka ${sData.studentName} ${subjectsString} Tot:${sData.totalMarksObtained}/${sData.totalMaxMarks} ${status}`;
                     } else {
                         // Fallback just in case

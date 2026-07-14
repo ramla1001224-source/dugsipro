@@ -22,6 +22,8 @@ export default function AdminStudents() {
     const [editingStudent, setEditingStudent] = useState(null)
     const [editData, setEditData] = useState({ name: '', student_id: '', password: '', class: '', classId: '', sectionId: '', phone: '', address: '', gender: '', dob: '', scholarship: 'none', parentPhone: '' })
 
+    const [sortBy, setSortBy] = useState('id')
+    const [order, setOrder] = useState('asc')
     const [classes, setClasses] = useState([])
     const [selectedImportClassId, setSelectedImportClassId] = useState('')
     const [selectedImportSectionId, setSelectedImportSectionId] = useState('')
@@ -48,7 +50,8 @@ export default function AdminStudents() {
         try {
             const classParam = selectedClassFilter ? `&classId=${selectedClassFilter}` : ''
             const sectionParam = selectedSectionFilter ? `&sectionId=${selectedSectionFilter}` : ''
-            const res = await axios.get(`${apiUrl}/api/students?page=${page}&limit=50&search=${search}${classParam}${sectionParam}`, {
+            const sortParam = `&sortBy=${sortBy}&order=${order}`
+            const res = await axios.get(`${apiUrl}/api/students?page=${page}&limit=50&search=${search}${classParam}${sectionParam}${sortParam}`, {
                 headers: { Authorization: `Bearer ${getToken()}` }
             })
             setStudents(res.data.students || [])
@@ -76,7 +79,7 @@ export default function AdminStudents() {
             fetchStudents(1)
         }, 300)
         return () => clearTimeout(timer)
-    }, [search, selectedClassFilter, selectedSectionFilter])
+    }, [search, selectedClassFilter, selectedSectionFilter, sortBy, order])
 
     useEffect(() => {
         const info = typeof window !== 'undefined' ? localStorage.getItem('schoolInfo') : ''
@@ -390,6 +393,23 @@ export default function AdminStudents() {
                                         <option key={s.id} value={s.id}>{s.class_name} - {s.name} ({s.shift})</option>
                                     ))
                                 }
+                            </select>
+                            <svg className="w-4 h-4 text-gray-400 absolute right-3 top-4 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                        </div>
+                        <div className="relative">
+                            <select
+                                className="bg-white border border-gray-100 pl-4 pr-10 py-3 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none w-48 shadow-sm appearance-none"
+                                value={`${sortBy}-${order}`}
+                                onChange={(e) => {
+                                    const [newSortBy, newOrder] = e.target.value.split('-');
+                                    setSortBy(newSortBy);
+                                    setOrder(newOrder);
+                                }}
+                            >
+                                <option value="id-asc">Sort by ID (Asc)</option>
+                                <option value="id-desc">Sort by ID (Desc)</option>
+                                <option value="name-asc">Sort by Name (A-Z)</option>
+                                <option value="name-desc">Sort by Name (Z-A)</option>
                             </select>
                             <svg className="w-4 h-4 text-gray-400 absolute right-3 top-4 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                         </div>
@@ -773,6 +793,7 @@ export default function AdminStudents() {
                                         <li>✅ <strong>Student ID (Optional)</strong> — Haddii ardayga ID leeyahay, ku qor; haddii kale, banaan ka daa oo system-ku auto-generate gareenayaa</li>
                                         <li>✅ <strong>Name</strong> — Magaca ardayga (waajib ah)</li>
                                         <li>✅ <strong>Password</strong> — Sirta; haddii banaan, default waa <code className="bg-blue-100 px-1 rounded">123123</code></li>
+                                        <li>✅ <strong>Parent Phone</strong> — Numbarka waalidka si SMS loogu diro (ikhtiyaari)</li>
                                     </ul>
                                 </div>
                             </div>
