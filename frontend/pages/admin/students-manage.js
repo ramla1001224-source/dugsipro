@@ -111,19 +111,21 @@ export default function AdminStudents() {
             [t('name')]: s.user.name,
             [t('id')]: s.student_id,
             [t('class')]: s.class_name + (s.section_name !== 'N/A' ? ` - ${s.section_name}` : ''),
-            [t('status')]: s.status || 'active'
+            [t('status')]: s.status || 'active',
+            'Parent Phone': s.parentPhone || ''
         }))
         exportToExcel(data, `Students_Report_${new Date().toLocaleDateString()}`)
     }
 
     const handleExportPDF = async () => {
         const allStudents = await fetchAllStudentsForExport()
-        const headers = [t('name'), t('id'), t('class'), t('status')]
+        const headers = [t('name'), t('id'), t('class'), t('status'), 'Parent Phone']
         const data = allStudents.map(s => [
             s.user.name, 
             s.student_id, 
             s.class_name + (s.section_name !== 'N/A' ? ` - ${s.section_name}` : ''),
-            s.status || 'active'
+            s.status || 'active',
+            s.parentPhone || ''
         ])
         exportToPDF(headers, data, `Students_Report_${new Date().toLocaleDateString()}`, t('students'), schoolInfo)
     }
@@ -250,7 +252,9 @@ export default function AdminStudents() {
 
     const downloadTemplate = async () => {
         try {
-            const res = await axios.get(`${apiUrl}/api/students/template`, {
+            const schoolId = schoolInfo?.id || ''
+            const params = schoolId ? `?schoolId=${schoolId}` : ''
+            const res = await axios.get(`${apiUrl}/api/students/template${params}`, {
                 headers: { Authorization: `Bearer ${getToken()}` },
                 responseType: 'blob'
             })
@@ -260,7 +264,11 @@ export default function AdminStudents() {
             a.download = 'students_template.xlsx'
             a.click()
             window.URL.revokeObjectURL(url)
-        } catch (e) { alert('Error downloading template') }
+        } catch (e) {
+            const msg = e.response?.status === 403 ? 'Ma haysid fasax template-ka soo degsiga. Fadlan log-out ka dib dib u gali.' : 'Khalad baa dhacay marka template-ka la soo degsan. Isku day mar kale.'
+            alert(msg)
+            console.error('Template download error:', e)
+        }
     }
 
     const handleFileSelect = (file) => {

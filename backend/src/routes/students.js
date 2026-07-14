@@ -92,7 +92,8 @@ router.get('/', authenticateToken, authorizeRoles('admin', 'teacher', 'accountan
       sectionId: e.sectionId,
       class_name: e.clss?.class_name || 'N/A',
       section_name: e.section?.name || 'N/A',
-      balance: e.balance
+      balance: e.balance,
+      parentPhone: e.student.parentPhone || ''
     }));
 
     if (page || limit) {
@@ -422,7 +423,7 @@ router.post('/create', authenticateToken, authorizeRoles('admin', 'owner', 'supe
 });
 
 // ==================== DOWNLOAD EXCEL TEMPLATE ====================
-router.get('/template', authenticateToken, authorizeRoles('admin', 'owner', 'super_admin'), (req, res) => {
+router.get('/template', authenticateToken, authorizeRoles('admin', 'owner', 'super_admin', 'teacher'), (req, res) => {
   const wb = XLSX.utils.book_new();
   // Student ID column is optional — if filled, system uses it; if empty, auto-generates
   const headers = [['Student ID (Optional)', 'Name', 'Password', 'Class', 'Phone', 'Address', 'Gender', 'Date of Birth', 'Parent Phone']];
