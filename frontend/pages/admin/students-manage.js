@@ -250,24 +250,27 @@ export default function AdminStudents() {
 
     // ==================== EXCEL FUNCTIONS ====================
 
-    const downloadTemplate = async () => {
+    const downloadTemplate = () => {
         try {
-            const schoolId = schoolInfo?.id || ''
-            const params = schoolId ? `?schoolId=${schoolId}` : ''
-            const res = await axios.get(`${apiUrl}/api/students/template${params}`, {
-                headers: { Authorization: `Bearer ${getToken()}` },
-                responseType: 'blob'
-            })
-            const url = window.URL.createObjectURL(new Blob([res.data]))
-            const a = document.createElement('a')
-            a.href = url
-            a.download = 'students_template.xlsx'
-            a.click()
-            window.URL.revokeObjectURL(url)
+            // Generate template directly in browser without API call
+            const XLSX = require('xlsx')
+            const headers = [
+                ['Student ID (Optional)', 'Name', 'Password', 'Class', 'Phone', 'Address', 'Gender', 'Date of Birth', 'Parent Phone']
+            ]
+            headers.push(['STU-001', 'Ahmed Mohamed', 'pass1234', 'Grade 10A', '0612345678', 'Garowe', 'Male', '2008-05-15', '0611111111'])
+            headers.push(['', 'Fadumo Ali', 'pass5678', 'Grade 10A', '0623456789', 'Bosaso', 'Female', '2009-03-20', '0622222222'])
+
+            const ws = XLSX.utils.aoa_to_sheet(headers)
+            ws['!cols'] = [
+                { wch: 22 }, { wch: 20 }, { wch: 15 }, { wch: 12 },
+                { wch: 15 }, { wch: 20 }, { wch: 10 }, { wch: 15 }, { wch: 15 }
+            ]
+            const wb = XLSX.utils.book_new()
+            XLSX.utils.book_append_sheet(wb, ws, 'Students')
+            XLSX.writeFile(wb, 'students_template.xlsx')
         } catch (e) {
-            const msg = e.response?.status === 403 ? 'Ma haysid fasax template-ka soo degsiga. Fadlan log-out ka dib dib u gali.' : 'Khalad baa dhacay marka template-ka la soo degsan. Isku day mar kale.'
-            alert(msg)
-            console.error('Template download error:', e)
+            console.error('Template generation error:', e)
+            alert('Khalad baa dhacay marka template-ka la sameeynayay. Isku day mar kale.')
         }
     }
 
