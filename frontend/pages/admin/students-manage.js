@@ -17,7 +17,7 @@ export default function AdminStudents() {
     const [search, setSearch] = useState('')
     const [showModal, setShowModal] = useState(false)
     const [showExcelModal, setShowExcelModal] = useState(false)
-    const [formData, setFormData] = useState({ name: '', password: '', class: '', classId: '', sectionId: '', phone: '', address: '', gender: '', scholarship: 'none' })
+    const [formData, setFormData] = useState({ name: '', password: '', class: '', classId: '', sectionId: '', phone: '', address: '', gender: '', scholarship: 'none', parentPhone: '' })
     const [showEditModal, setShowEditModal] = useState(false)
     const [editingStudent, setEditingStudent] = useState(null)
     const [editData, setEditData] = useState({ name: '', student_id: '', password: '', class: '', classId: '', sectionId: '', phone: '', address: '', gender: '', dob: '', scholarship: 'none', parentPhone: '' })
@@ -145,7 +145,7 @@ export default function AdminStudents() {
             })
             
             setShowModal(false)
-            setFormData({ name: '', password: '', class: '', classId: '', sectionId: '', phone: '', address: '', gender: '', scholarship: 'none' })
+            setFormData({ name: '', password: '', class: '', classId: '', sectionId: '', phone: '', address: '', gender: '', scholarship: 'none', parentPhone: '' })
             fetchStudents()
             alert('Ardayga sir guul ah ayaa loo diwaan geliyey!');
         } catch (e) { 
@@ -615,6 +615,20 @@ export default function AdminStudents() {
                             <div>
                                 <label className="text-xs font-bold text-gray-400 uppercase mb-1 block">Address</label>
                                 <input className="w-full p-3 rounded-xl border focus:ring-2 focus:ring-blue-500 outline-none" value={formData.address} onChange={e => setFormData({ ...formData, address: e.target.value })} />
+                            </div>
+                            <div className="col-span-2">
+                                <label className="text-xs font-bold text-emerald-600 uppercase mb-1 block flex items-center gap-1">
+                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
+                                    Telefoonka Waalidka (Parent Phone)
+                                </label>
+                                <input
+                                    type="tel"
+                                    placeholder="Tusaale: 2526XXXXXXX"
+                                    className="w-full p-3 rounded-xl border border-emerald-200 focus:ring-2 focus:ring-emerald-400 outline-none bg-emerald-50/30"
+                                    value={formData.parentPhone}
+                                    onChange={e => setFormData({ ...formData, parentPhone: e.target.value })}
+                                />
+                                <p className="text-[10px] text-emerald-600 mt-1 font-medium">📱 Tani waxay u oggolaanaysaa SMS-ga in toos loogu diro waalidka xitaa haddaan akoon u lahayn</p>
                             </div>
                             <div className="col-span-2 mt-2 flex gap-3">
                                 <button
