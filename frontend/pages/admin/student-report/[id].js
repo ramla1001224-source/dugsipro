@@ -15,6 +15,7 @@ export default function StudentReport() {
         }
         return true
     })
+    const [schoolInfo, setSchoolInfo] = useState(null)
 
     const toggleAverage = () => {
         setShowAverage(prev => {
@@ -47,6 +48,11 @@ export default function StudentReport() {
             })
     }, [id])
 
+    useEffect(() => {
+        const saved = localStorage.getItem('schoolInfo')
+        if (saved) setSchoolInfo(JSON.parse(saved))
+    }, [])
+
     const handlePrint = () => window.print()
 
     if (loading) return (
@@ -67,12 +73,6 @@ export default function StudentReport() {
     )
 
     const { student, subjects, grandTotal } = data
-
-    const [schoolInfo, setSchoolInfo] = useState(null)
-    useEffect(() => {
-        const saved = localStorage.getItem('schoolInfo')
-        if (saved) setSchoolInfo(JSON.parse(saved))
-    }, [])
 
     return (
         <Layout title={`${student.name} - Report Card`}>

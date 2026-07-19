@@ -170,7 +170,7 @@ export default function Layout({ children, title }) {
       // Fetch school info if applicable
       const schoolId = payload.schoolId
       console.log('Layout: schoolId from payload:', schoolId);
-      if (schoolId || userRole === 'super_admin' || userRole === 'admin' || userRole === 'accountant' || userRole === 'librarian' || userRole === 'teacher' || userRole === 'staff') {
+      if (schoolId || userRole === 'super_admin' || userRole === 'admin' || userRole === 'accountant' || userRole === 'librarian' || userRole === 'teacher' || userRole === 'staff' || userRole === 'student' || userRole === 'parent') {
         fetch(`${apiUrl}/api/auth/school-info`, {
           headers: { 'Authorization': `Bearer ${token}` }
         })
@@ -224,12 +224,15 @@ export default function Layout({ children, title }) {
     : null
 
   const logout = () => { 
+    // Clear ALL session data to prevent ghost/stale data on next login
+    const keysToRemove = ['token', 'role', 'schoolId', 'schoolInfo', 'selectedSchool', 'sidebarOpen',
+      'originalSuperAdminToken', 'originalOwnerToken']
+    keysToRemove.forEach(k => localStorage.removeItem(k))
     // Clear AI chat histories
     Object.keys(localStorage).forEach(key => {
       if (key.startsWith('ai_chat_history_')) localStorage.removeItem(key)
     })
-    localStorage.removeItem('token'); 
-    router.push('/') 
+    window.location.href = '/'
   }
 
   const returnToSuperAdmin = async () => {
