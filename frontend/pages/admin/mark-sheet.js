@@ -499,7 +499,7 @@ export default function MarkSheet() {
                                         </td>
                                         <td className="px-6 py-4 font-bold text-slate-700 border-r border-gray-100 sticky left-0 bg-white z-10 group-hover:bg-gray-50">
                                             <button
-                                                onClick={() => router.push(`/admin/student-report/${student.studentId}`)}
+                                                onClick={() => router.push(`/admin/student-history/${student.studentId}`)}
                                                 className="text-indigo-600 hover:text-indigo-800 hover:underline text-left block"
                                             >
                                                 {student.studentName}
