@@ -17,19 +17,43 @@ class _SmsParentsScreenState extends State<SmsParentsScreen> {
 
   bool get _hasUnicode => _messageCtrl.text.runes.any((r) => r > 127);
   int get _smsLimit => _hasUnicode ? 70 : 160;
-  
+
   List<dynamic> _classes = [];
   List<dynamic> _sections = [];
   String? _selectedClassId;
   String _selectedSectionId = 'all';
-  
+
   bool _loading = true;
   bool _sending = false;
+
+  // Monthly bulk send limit state
+  int _bulkSendCount = 0;
+  int _bulkSendLimit = 2;
+  int _bulkSendRemaining = 2;
+  bool _isLimitReached = false;
 
   @override
   void initState() {
     super.initState();
     _fetchClasses();
+    _fetchBulkSendCount();
+  }
+
+  Future<void> _fetchBulkSendCount() async {
+    try {
+      final res = await _api.get(ApiConfig.bulkSmsParentsCount);
+      final data = res.data;
+      if (mounted && data is Map) {
+        setState(() {
+          _bulkSendCount = (data['count'] ?? 0) as int;
+          _bulkSendLimit = (data['limit'] ?? 2) as int;
+          _bulkSendRemaining = (data['remaining'] ?? 2) as int;
+          _isLimitReached = (data['isLimitReached'] ?? false) as bool;
+        });
+      }
+    } catch (_) {
+      // silently fail — limit check is also enforced by backend
+    }
   }
 
   Future<void> _fetchClasses() async {
@@ -69,6 +93,18 @@ class _SmsParentsScreenState extends State<SmsParentsScreen> {
       return;
     }
 
+    // Client-side limit check
+    if (_isLimitReached) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Xaddidaadka bishii waa la gaadhy! Waxaad diri kartaa oo keliya $_bulkSendLimit fariin oo Bulk ah bil kasta.'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+      return;
+    }
+
     String confirmMsg = '';
     if (_selectedClassId == 'all') {
       confirmMsg = 'Ma hubtaa inaad rabto inaad fariintan u dirto dhammaan waalidiinta dugsiga (All Parents)?';
@@ -100,7 +136,7 @@ class _SmsParentsScreenState extends State<SmsParentsScreen> {
         'sectionId': _selectedSectionId,
         'message': _messageCtrl.text.trim(),
       });
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -109,13 +145,26 @@ class _SmsParentsScreenState extends State<SmsParentsScreen> {
           ),
         );
         _messageCtrl.clear();
+        // Refresh monthly counter after successful send
+        _fetchBulkSendCount();
       }
     } catch (e) {
       if (mounted) {
+        // Extract error message from response (handles 429 limit error)
+        String errMsg = 'Cillad ayaa dhacday intii SMS-ka la dirayay.';
+        try {
+          final dynamic err = e;
+          final resp = err?.response?.data;
+          if (resp is Map && resp['message'] != null) {
+            errMsg = resp['message'];
+          }
+        } catch (_) {}
+
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Cillad ayaa dhacday intii SMS-ka la dirayay.'),
+          SnackBar(
+            content: Text(errMsg),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
           ),
         );
       }
@@ -133,8 +182,15 @@ class _SmsParentsScreenState extends State<SmsParentsScreen> {
         backgroundColor: const Color(0xFF0F172A),
         iconTheme: const IconThemeData(color: Colors.white),
         elevation: 0,
+        actions: [
+          // Monthly limit badge in AppBar
+          Padding(
+            padding: EdgeInsets.only(right: 16.w),
+            child: Center(child: _buildLimitBadge()),
+          ),
+        ],
       ),
-      body: _loading 
+      body: _loading
         ? const Center(child: CircularProgressIndicator())
         : SingleChildScrollView(
             padding: EdgeInsets.all(24.w),
@@ -147,6 +203,40 @@ class _SmsParentsScreenState extends State<SmsParentsScreen> {
               ],
             ),
           ),
+    );
+  }
+
+  /// Small badge shown in AppBar: e.g. "0/2" green, "1/2" amber, "2/2🔒" red
+  Widget _buildLimitBadge() {
+    final Color bgColor = _isLimitReached
+        ? Colors.red.shade700
+        : _bulkSendCount >= 1
+            ? Colors.amber.shade700
+            : Colors.green.shade700;
+
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(20.r),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (_isLimitReached)
+            Icon(Icons.lock_rounded, size: 12.sp, color: Colors.white),
+          if (_isLimitReached) SizedBox(width: 4.w),
+          Text(
+            '$_bulkSendCount/$_bulkSendLimit Bishii',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 10.sp,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 0.5,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -182,7 +272,109 @@ class _SmsParentsScreenState extends State<SmsParentsScreen> {
             height: 1.5.h,
           ),
         ),
+        SizedBox(height: 16.h),
+        // Full-width limit info card
+        _buildLimitInfoCard(),
       ],
+    );
+  }
+
+  /// Full-width card below header showing remaining sends
+  Widget _buildLimitInfoCard() {
+    final Color bgColor = _isLimitReached
+        ? const Color(0xFFFEF2F2)
+        : _bulkSendCount >= 1
+            ? const Color(0xFFFFFBEB)
+            : const Color(0xFFF0FDF4);
+
+    final Color borderColor = _isLimitReached
+        ? const Color(0xFFFECACA)
+        : _bulkSendCount >= 1
+            ? const Color(0xFFFDE68A)
+            : const Color(0xFFBBF7D0);
+
+    final Color textColor = _isLimitReached
+        ? const Color(0xFFDC2626)
+        : _bulkSendCount >= 1
+            ? const Color(0xFFB45309)
+            : const Color(0xFF16A34A);
+
+    final IconData icon = _isLimitReached
+        ? Icons.lock_rounded
+        : Icons.sms_rounded;
+
+    return Container(
+      padding: EdgeInsets.all(16.w),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(20.r),
+        border: Border.all(color: borderColor, width: 1.5),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44.w,
+            height: 44.h,
+            decoration: BoxDecoration(
+              color: borderColor,
+              borderRadius: BorderRadius.circular(12.r),
+            ),
+            child: Icon(icon, color: textColor, size: 22.sp),
+          ),
+          SizedBox(width: 14.w),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _isLimitReached
+                      ? 'Xaddidaadka Bishii Waa La Gaadhy'
+                      : 'Fariimaha Kuu Haray Bishii',
+                  style: TextStyle(
+                    fontSize: 13.sp,
+                    fontWeight: FontWeight.w900,
+                    color: textColor,
+                  ),
+                ),
+                SizedBox(height: 2.h),
+                Text(
+                  _isLimitReached
+                      ? 'Bisha soo socota ayaad dib u diri kartaa $_bulkSendLimit fariin oo bulk ah.'
+                      : '$_bulkSendRemaining ka mid ah $_bulkSendLimit ayaad weli diri kartaa bisha.',
+                  style: TextStyle(
+                    fontSize: 11.sp,
+                    color: textColor.withValues(alpha: 0.8),
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(width: 10.w),
+          // Big counter
+          Column(
+            children: [
+              Text(
+                '$_bulkSendCount',
+                style: TextStyle(
+                  fontSize: 30.sp,
+                  fontWeight: FontWeight.w900,
+                  color: textColor,
+                  height: 1,
+                ),
+              ),
+              Text(
+                '/ $_bulkSendLimit',
+                style: TextStyle(
+                  fontSize: 12.sp,
+                  fontWeight: FontWeight.w700,
+                  color: textColor.withValues(alpha: 0.6),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -225,11 +417,11 @@ class _SmsParentsScreenState extends State<SmsParentsScreen> {
                     child: Text(cls['class_name'] ?? 'N/A'),
                   )),
                 ],
-                onChanged: _onClassChanged,
+                onChanged: _isLimitReached ? null : _onClassChanged,
               ),
             ),
           ),
-          
+
           SizedBox(height: 20.h),
 
           // Section Selection
@@ -238,7 +430,7 @@ class _SmsParentsScreenState extends State<SmsParentsScreen> {
           Container(
             padding: EdgeInsets.symmetric(horizontal: 16.w),
             decoration: BoxDecoration(
-              color: (_selectedClassId == null || _selectedClassId == 'all') ? const Color(0xFFF8FAFC) : const Color(0xFFF1F5F9),
+              color: (_selectedClassId == null || _selectedClassId == 'all' || _isLimitReached) ? const Color(0xFFF8FAFC) : const Color(0xFFF1F5F9),
               borderRadius: BorderRadius.circular(16.r),
             ),
             child: DropdownButtonHideUnderline(
@@ -255,7 +447,7 @@ class _SmsParentsScreenState extends State<SmsParentsScreen> {
                     child: Text('${sec['name']} (${sec['shift']})'),
                   )),
                 ],
-                onChanged: (_selectedClassId == null || _selectedClassId == 'all') ? null : (v) => setState(() => _selectedSectionId = v!),
+                onChanged: (_selectedClassId == null || _selectedClassId == 'all' || _isLimitReached) ? null : (v) => setState(() => _selectedSectionId = v!),
               ),
             ),
           ),
@@ -268,8 +460,8 @@ class _SmsParentsScreenState extends State<SmsParentsScreen> {
           TextField(
             controller: _messageCtrl,
             maxLines: 6,
+            enabled: !_isLimitReached,
             onChanged: (v) {
-              // Enforce character limit based on content type
               final hasUnicode = v.runes.any((r) => r > 127);
               final limit = hasUnicode ? 70 : 160;
               if (v.length > limit) {
@@ -279,8 +471,8 @@ class _SmsParentsScreenState extends State<SmsParentsScreen> {
               setState(() {});
             },
             decoration: InputDecoration(
-              hintText: 'Halkan ku qor fariinta...',
-              fillColor: const Color(0xFFF1F5F9),
+              hintText: _isLimitReached ? 'Xaddidaadka waa la gaadhy — bisha soo socota dir...' : 'Halkan ku qor fariinta...',
+              fillColor: _isLimitReached ? const Color(0xFFFEF2F2) : const Color(0xFFF1F5F9),
               filled: true,
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(20.r), borderSide: BorderSide.none),
             ),
@@ -304,33 +496,54 @@ class _SmsParentsScreenState extends State<SmsParentsScreen> {
 
           SizedBox(height: 30.h),
 
-          // Submit
+          // Submit Button
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: (_sending || _selectedClassId == null || _messageCtrl.text.trim().isEmpty) ? null : _handleSendSMS,
+              onPressed: (_sending || _selectedClassId == null || _messageCtrl.text.trim().isEmpty || _isLimitReached)
+                  ? null
+                  : _handleSendSMS,
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primary,
-                foregroundColor: Colors.white,
+                backgroundColor: _isLimitReached ? const Color(0xFFFECACA) : AppTheme.primary,
+                foregroundColor: _isLimitReached ? const Color(0xFFDC2626) : Colors.white,
+                disabledBackgroundColor: _isLimitReached ? const Color(0xFFFECACA) : const Color(0xFFE2E8F0),
+                disabledForegroundColor: _isLimitReached ? const Color(0xFFDC2626) : const Color(0xFF94A3B8),
                 padding: EdgeInsets.symmetric(vertical: 20.h),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.r)),
                 elevation: 0,
               ),
-              child: _sending 
+              child: _sending
                 ? SizedBox(width: 20.w, height: 20.h, child: const CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                : Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text('DIRI FARIINTA (SEND SMS)', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 12.sp, letterSpacing: 1)),
-                      SizedBox(width: 10.w),
-                      const Icon(Icons.send_rounded, size: 18),
-                    ],
-                  ),
+                : _isLimitReached
+                    ? Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.lock_rounded, size: 16.sp),
+                          SizedBox(width: 8.w),
+                          Text(
+                            'XADDIDAADKA WAA LA GAADHY — BISHA SOO SOCOTA',
+                            style: TextStyle(fontWeight: FontWeight.w900, fontSize: 10.sp, letterSpacing: 0.5),
+                          ),
+                        ],
+                      )
+                    : Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text('DIRI FARIINTA (SEND SMS)', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 12.sp, letterSpacing: 1)),
+                          SizedBox(width: 10.w),
+                          const Icon(Icons.send_rounded, size: 18),
+                        ],
+                      ),
             ),
           ),
         ],
       ),
     );
   }
-}
 
+  @override
+  void dispose() {
+    _messageCtrl.dispose();
+    super.dispose();
+  }
+}

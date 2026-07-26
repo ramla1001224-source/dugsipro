@@ -308,6 +308,42 @@ router.get('/superadmin-logs', authenticateToken, authorizeRoles('super_admin', 
     }
 });
 
+// ==================== GET BULK SEND COUNT FOR CURRENT MONTH ====================
+// Returns how many times bulk SMS was sent to parents this month (max 2 allowed)
+router.get('/bulk-send-count', authenticateToken, authorizeRoles('admin', 'owner', 'super_admin'), async (req, res) => {
+    try {
+        let schoolId = req.user.schoolId;
+        if (!schoolId && !['super_admin', 'owner'].includes((req.user.role || '').toLowerCase())) {
+            const user = await prisma.user.findUnique({ where: { id: req.user.id } });
+            if (user) schoolId = user.schoolId;
+        }
+        if (!schoolId) return res.status(400).json({ message: 'School ID required' });
+
+        const now = new Date();
+        const currentMonth = now.getMonth() + 1;
+        const currentYear = now.getFullYear();
+        const MONTHLY_LIMIT = 2;
+
+        const count = await prisma.smsLog.count({
+            where: {
+                schoolId,
+                type: 'bulk_send_event',
+                month: currentMonth,
+                year: currentYear
+            }
+        });
+
+        res.json({
+            count,
+            limit: MONTHLY_LIMIT,
+            remaining: Math.max(0, MONTHLY_LIMIT - count),
+            isLimitReached: count >= MONTHLY_LIMIT,
+            month: currentMonth,
+            year: currentYear
+        });
+    } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
 // ==================== TEST SMS SENDING ====================
 router.post('/test', authenticateToken, authorizeRoles('admin', 'owner', 'super_admin'), async (req, res) => {
     try {
@@ -347,6 +383,31 @@ router.post('/bulk-parents', authenticateToken, authorizeRoles('admin', 'owner',
         if (!classId || !message) {
             return res.status(400).json({ message: 'classId and message are required' });
         }
+
+        // ==================== MONTHLY BULK SEND LIMIT CHECK ====================
+        const MONTHLY_LIMIT = 2;
+        const now = new Date();
+        const currentMonth = now.getMonth() + 1;
+        const currentYear = now.getFullYear();
+
+        const bulkSendCount = await prisma.smsLog.count({
+            where: {
+                schoolId,
+                type: 'bulk_send_event',
+                month: currentMonth,
+                year: currentYear
+            }
+        });
+
+        if (bulkSendCount >= MONTHLY_LIMIT) {
+            return res.status(429).json({
+                message: `Xaddidaadka bishii waa la gaadhy! Waxaad diri kartaa oo keliya ${MONTHLY_LIMIT} fariin oo Bulk ah bil kasta. Bisha soo socota ayaad dib u diri kartaa.`,
+                limitReached: true,
+                count: bulkSendCount,
+                limit: MONTHLY_LIMIT
+            });
+        }
+        // ======================================================================
 
         // School name prefix removed to keep message within 1 SMS credit limit
         const fullMessage = message;
@@ -441,10 +502,25 @@ router.post('/bulk-parents', authenticateToken, authorizeRoles('admin', 'owner',
 
         enqueueBulkSMS(smsJobs);
 
+        // Log one bulk_send_event to track the monthly limit
+        await prisma.smsLog.create({
+            data: {
+                schoolId,
+                phoneNumber: 'BULK_EVENT',
+                message: `Bulk send to ${smsJobs.length} parents - class: ${classId}`,
+                status: 'sent',
+                type: 'bulk_send_event',
+                month: currentMonth,
+                year: currentYear
+            }
+        });
+
         res.json({
             success: true,
             message: `Queued ${smsJobs.length} SMS messages for processing.`,
-            count: smsJobs.length
+            count: smsJobs.length,
+            bulkSendsThisMonth: bulkSendCount + 1,
+            bulkSendsRemaining: Math.max(0, MONTHLY_LIMIT - (bulkSendCount + 1))
         });
 
     } catch (err) {

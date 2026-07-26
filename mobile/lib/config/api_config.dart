@@ -39,6 +39,7 @@ class ApiConfig {
   static const String exams = '/api/exams';
   static const String sendBulkSms = '/api/exams/send-bulk-sms';
   static const String bulkSmsParents = '/api/sms/bulk-parents';
+  static const String bulkSmsParentsCount = '/api/sms/bulk-send-count';
   static const String studentResults = '/api/exams/student-results';
   static const String announcements = '/api/announcements';
   static const String messages = '/api/messages';
