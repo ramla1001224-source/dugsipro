@@ -705,8 +705,8 @@ class LocaleProvider with ChangeNotifier {
       'today_late': 'Ardayda Soo Daahday',
       'pending_classes_label': 'Fasalada Dhiman',
       'fee_status': 'Xaaladda Biilasha',
-      'students_paid': 'Ardayda Bixisay',
-      'students_unpaid': 'Ardayda Aan Bixin',
+      'students_paid': 'Ardayda Lacagta Bixisay',
+      'students_unpaid': 'Ardayda Aan Bixin Lacagta',
       'collected_revenue': 'Dakhliga la qabtay',
       'expected_revenue': 'Dakhliga la filayo',
       'other_income': 'Dakhli kale',
@@ -747,7 +747,7 @@ class LocaleProvider with ChangeNotifier {
       'books_list': 'Liiska Buugaagta',
       'issuing': 'Bixin Buug',
       'returns': 'Soo Celinta',
-      'unpaid_students': 'Ardayda Aan Bixin',
+      'unpaid_students': 'Ardayda Aan Bixin Lacagta',
     },
   };
 

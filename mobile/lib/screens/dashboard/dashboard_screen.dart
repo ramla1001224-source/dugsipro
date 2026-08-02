@@ -3205,103 +3205,121 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     ),
                                   ),
                                 )
-                              : ListView.separated(
-                                  padding: EdgeInsets.all(16.w),
-                                  itemCount: _details.length,
-                                  separatorBuilder: (_, __) =>
-                                      SizedBox(height: 8.h),
-                                  itemBuilder: (context, i) {
-                                    final s =
-                                        _details[i] as Map<String, dynamic>;
-                                    final initials = (s['name'] ?? '??')
-                                        .toString()
-                                        .substring(
-                                            0,
-                                            (s['name'] ?? '??')
-                                                        .toString()
-                                                        .length >=
-                                                    2
-                                                ? 2
-                                                : 1)
-                                        .toUpperCase();
-                                    return Container(
-                                      padding: EdgeInsets.symmetric(
-                                          horizontal: 16.w, vertical: 12.h),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFFF8FAFC),
-                                        borderRadius: BorderRadius.circular(16.r),
-                                        border: Border.all(
-                                            color: const Color(0xFFE2E8F0)),
-                                      ),
-                                      child: Row(
-                                        children: [
-                                          CircleAvatar(
-                                            radius: 18,
-                                            backgroundColor: headerColor
-                                                .withValues(alpha: 0.1),
-                                            child: Text(
-                                              initials,
-                                              style: TextStyle(
-                                                  color: headerColor,
-                                                  fontWeight: FontWeight.w900,
-                                                  fontSize: 11.sp),
-                                            ),
+                              : Builder(
+                                  builder: (context) {
+                                    final grouped = <String, List<Map<String, dynamic>>>{};
+                                    for (var item in _details) {
+                                      final map = item as Map<String, dynamic>;
+                                      final className = map['class']?.toString() ?? 'N/A';
+                                      grouped.putIfAbsent(className, () => []).add(map);
+                                    }
+                                    
+                                    final classes = grouped.keys.toList();
+                                    
+                                    return ListView.builder(
+                                      padding: EdgeInsets.all(16.w),
+                                      itemCount: classes.length,
+                                      itemBuilder: (context, index) {
+                                        final className = classes[index];
+                                        final students = grouped[className]!;
+                                        return Container(
+                                          margin: EdgeInsets.only(bottom: 8.h),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFFF8FAFC),
+                                            borderRadius: BorderRadius.circular(16.r),
+                                            border: Border.all(color: const Color(0xFFE2E8F0)),
                                           ),
-                                          SizedBox(width: 12.w),
-                                          Expanded(
-                                            child: Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                Text(
-                                                  s['name'] ?? '',
-                                                  style: const TextStyle(
-                                                    fontWeight: FontWeight.w900,
-                                                    color: AppTheme.textPrimary,
-                                                  ),
-                                                ),
-                                                if (s['parent_name'] != null &&
-                                                    s['parent_name'] != 'N/A')
-                                                  Text(
-                                                    'Parent: ${s['parent_name']} (${s['parent_phone']})',
-                                                    style: TextStyle(
-                                                      fontSize: 9.sp,
-                                                      color: Colors.blueGrey,
-                                                      fontWeight:
-                                                          FontWeight.w600,
-                                                    ),
-                                                  ),
-                                                Text(
-                                                  s['student_id'] ?? '',
-                                                  style: TextStyle(
-                                                    fontSize: 10.sp,
-                                                    color:
-                                                        AppTheme.textSecondary,
-                                                    fontWeight: FontWeight.w600,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                          Container(
-                                            padding: EdgeInsets.symmetric(
-                                                horizontal: 10.w, vertical: 5.h),
-                                            decoration: BoxDecoration(
-                                              color: const Color(0xFFF1F5F9),
-                                              borderRadius:
-                                                  BorderRadius.circular(10.r),
-                                            ),
-                                            child: Text(
-                                              s['class'] ?? '',
-                                              style: TextStyle(
-                                                fontSize: 10.sp,
-                                                fontWeight: FontWeight.w800,
-                                                color: AppTheme.textSecondary,
+                                          child: ExpansionTile(
+                                            shape: const RoundedRectangleBorder(side: BorderSide.none),
+                                            collapsedShape: const RoundedRectangleBorder(side: BorderSide.none),
+                                            tilePadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 4.h),
+                                            leading: CircleAvatar(
+                                              backgroundColor: headerColor.withValues(alpha: 0.1),
+                                              child: Text(
+                                                '🏫',
+                                                style: TextStyle(fontSize: 14.sp),
                                               ),
                                             ),
+                                            title: Text(
+                                              className.toUpperCase(),
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.w900,
+                                                color: AppTheme.textPrimary,
+                                                fontSize: 14.sp,
+                                              ),
+                                            ),
+                                            subtitle: Text(
+                                              '${students.length} Students',
+                                              style: TextStyle(
+                                                fontSize: 10.sp,
+                                                color: AppTheme.textSecondary,
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                            ),
+                                            children: students.map((s) {
+                                              final initials = (s['name'] ?? '??')
+                                                  .toString()
+                                                  .substring(0, (s['name'] ?? '??').toString().length >= 2 ? 2 : 1)
+                                                  .toUpperCase();
+                                              return Container(
+                                                padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+                                                decoration: const BoxDecoration(
+                                                  border: Border(top: BorderSide(color: Color(0xFFE2E8F0))),
+                                                ),
+                                                child: Row(
+                                                  children: [
+                                                    CircleAvatar(
+                                                      radius: 16,
+                                                      backgroundColor: headerColor.withValues(alpha: 0.1),
+                                                      child: Text(
+                                                        initials,
+                                                        style: TextStyle(
+                                                          color: headerColor,
+                                                          fontWeight: FontWeight.w900,
+                                                          fontSize: 10.sp,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    SizedBox(width: 12.w),
+                                                    Expanded(
+                                                      child: Column(
+                                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                                        children: [
+                                                          Text(
+                                                            s['name'] ?? '',
+                                                            style: TextStyle(
+                                                              fontWeight: FontWeight.w900,
+                                                              color: AppTheme.textPrimary,
+                                                              fontSize: 12.sp,
+                                                            ),
+                                                          ),
+                                                          if (s['parent_name'] != null && s['parent_name'] != 'N/A')
+                                                            Text(
+                                                              'Parent: ${s['parent_name']} (${s['parent_phone']})',
+                                                              style: TextStyle(
+                                                                fontSize: 9.sp,
+                                                                color: Colors.blueGrey,
+                                                                fontWeight: FontWeight.w600,
+                                                              ),
+                                                            ),
+                                                          Text(
+                                                            s['student_id'] ?? '',
+                                                            style: TextStyle(
+                                                              fontSize: 9.sp,
+                                                              color: AppTheme.textSecondary,
+                                                              fontWeight: FontWeight.w600,
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              );
+                                            }).toList(),
                                           ),
-                                        ],
-                                      ),
+                                        );
+                                      },
                                     );
                                   },
                                 ),
