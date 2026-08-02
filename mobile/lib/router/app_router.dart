@@ -4,6 +4,7 @@ import 'auth_state.dart';
 import '../services/auth_service.dart';
 import '../screens/login/login_screen.dart';
 import '../screens/dashboard/dashboard_screen.dart';
+import '../screens/dashboard/class_details_screen.dart';
 import '../screens/students/students_screen.dart';
 import '../screens/students/student_detail_screen.dart';
 import '../screens/attendance/attendance_screen.dart';
@@ -123,6 +124,16 @@ class AppRouter {
             ),
           ),
           GoRoute(path: '/dashboard', builder: (context, state) => const DashboardScreen()),
+          GoRoute(
+            path: '/class-details',
+            builder: (context, state) => ClassDetailsScreen(
+              className: state.uri.queryParameters['className'] ?? '',
+              status: state.uri.queryParameters['status'] ?? '',
+              session: state.uri.queryParameters['session'] ?? '',
+              shift: state.uri.queryParameters['shift'] ?? '',
+              isPayment: state.uri.queryParameters['isPayment'] == 'true',
+            ),
+          ),
           GoRoute(path: '/profile', builder: (context, state) => const ProfileScreen()),
           GoRoute(path: '/settings', builder: (context, state) => const SettingsScreen()),
           GoRoute(

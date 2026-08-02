@@ -3229,10 +3229,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                             borderRadius: BorderRadius.circular(16.r),
                                             border: Border.all(color: const Color(0xFFE2E8F0)),
                                           ),
-                                          child: ExpansionTile(
-                                            shape: const RoundedRectangleBorder(side: BorderSide.none),
-                                            collapsedShape: const RoundedRectangleBorder(side: BorderSide.none),
-                                            tilePadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 4.h),
+                                          child: ListTile(
+                                            onTap: () {
+                                              final isPayment = _selectedStatus == 'paid' || _selectedStatus == 'unpaid';
+                                              String query = 'className=${Uri.encodeComponent(className)}&status=$_selectedStatus&shift=${Uri.encodeComponent(_shift)}&isPayment=$isPayment';
+                                              if (!isPayment) {
+                                                query += '&session=${Uri.encodeComponent(_session)}';
+                                              }
+                                              GoRouter.of(context).push('/class-details?$query');
+                                            },
+                                            contentPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 4.h),
                                             leading: CircleAvatar(
                                               backgroundColor: headerColor.withValues(alpha: 0.1),
                                               child: Text(
@@ -3256,67 +3262,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                                 fontWeight: FontWeight.w700,
                                               ),
                                             ),
-                                            children: students.map((s) {
-                                              final initials = (s['name'] ?? '??')
-                                                  .toString()
-                                                  .substring(0, (s['name'] ?? '??').toString().length >= 2 ? 2 : 1)
-                                                  .toUpperCase();
-                                              return Container(
-                                                padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
-                                                decoration: const BoxDecoration(
-                                                  border: Border(top: BorderSide(color: Color(0xFFE2E8F0))),
-                                                ),
-                                                child: Row(
-                                                  children: [
-                                                    CircleAvatar(
-                                                      radius: 16,
-                                                      backgroundColor: headerColor.withValues(alpha: 0.1),
-                                                      child: Text(
-                                                        initials,
-                                                        style: TextStyle(
-                                                          color: headerColor,
-                                                          fontWeight: FontWeight.w900,
-                                                          fontSize: 10.sp,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                    SizedBox(width: 12.w),
-                                                    Expanded(
-                                                      child: Column(
-                                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                                        children: [
-                                                          Text(
-                                                            s['name'] ?? '',
-                                                            style: TextStyle(
-                                                              fontWeight: FontWeight.w900,
-                                                              color: AppTheme.textPrimary,
-                                                              fontSize: 12.sp,
-                                                            ),
-                                                          ),
-                                                          if (s['parent_name'] != null && s['parent_name'] != 'N/A')
-                                                            Text(
-                                                              'Parent: ${s['parent_name']} (${s['parent_phone']})',
-                                                              style: TextStyle(
-                                                                fontSize: 9.sp,
-                                                                color: Colors.blueGrey,
-                                                                fontWeight: FontWeight.w600,
-                                                              ),
-                                                            ),
-                                                          Text(
-                                                            s['student_id'] ?? '',
-                                                            style: TextStyle(
-                                                              fontSize: 9.sp,
-                                                              color: AppTheme.textSecondary,
-                                                              fontWeight: FontWeight.w600,
-                                                            ),
-                                                          ),
-                                                        ],
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              );
-                                            }).toList(),
+                                            trailing: Icon(Icons.arrow_forward_ios_rounded, size: 14.sp, color: AppTheme.textSecondary),
                                           ),
                                         );
                                       },

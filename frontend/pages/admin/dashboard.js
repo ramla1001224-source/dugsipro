@@ -25,13 +25,13 @@ export default function AdminDashboard() {
   const [smsHistory, setSmsHistory] = useState([])
   const [showSmsHistory, setShowSmsHistory] = useState(false)
   const [smsLoading, setSmsLoading] = useState(false)
-  const [expandedClasses, setExpandedClasses] = useState({})
+
 
   const fetchDetails = async (status, isPayment = false) => {
     setSelectedStatus(status)
     setShowDetails(true)
     setDetailsLoading(true)
-    setExpandedClasses({})
+
     const token = typeof window !== 'undefined' ? localStorage.getItem('token') : ''
     const endpoint = isPayment ? 'payment-details' : 'attendance-details'
     let query = isPayment ? `status=${status}&shift=${shift}` : `status=${status}&session=${session}&shift=${shift}`
@@ -425,11 +425,17 @@ export default function AdminDashboard() {
                       {Object.keys(grouped).map(className => (
                         <div key={className} className="border border-slate-100 rounded-3xl bg-slate-50 overflow-hidden">
                           <button 
-                            onClick={() => setExpandedClasses(prev => ({...prev, [className]: !prev[className]}))}
+                            onClick={() => {
+                              const isPayment = selectedStatus === 'paid' || selectedStatus === 'unpaid';
+                              let query = `className=${encodeURIComponent(className)}&status=${selectedStatus}&shift=${shift}&isPayment=${isPayment}`;
+                              if (!isPayment) query += `&session=${session}`;
+                              if (schoolId) query += `&schoolId=${schoolId}`;
+                              router.push(`/admin/class-details?${query}`);
+                            }}
                             className="w-full flex items-center justify-between p-5 hover:bg-white transition-colors"
                           >
                             <div className="flex items-center gap-3">
-                              <div className={`w-10 h-10 rounded-full flex items-center justify-center font-black ${expandedClasses[className] ? 'bg-blue-100 text-blue-600' : 'bg-slate-200 text-slate-500'}`}>
+                              <div className="w-10 h-10 rounded-full flex items-center justify-center font-black bg-slate-200 text-slate-500 hover:bg-blue-100 hover:text-blue-600 transition-colors">
                                 🏫
                               </div>
                               <div className="text-left">
@@ -438,27 +444,9 @@ export default function AdminDashboard() {
                               </div>
                             </div>
                             <div className="text-slate-400 font-black text-xs">
-                              {expandedClasses[className] ? '▲' : '▼'}
+                              →
                             </div>
                           </button>
-                          
-                          {expandedClasses[className] && (
-                            <div className="p-4 pt-0 border-t border-slate-100 bg-white grid grid-cols-1 gap-2">
-                              {grouped[className].map((s, idx) => (
-                                <div key={idx} className="flex items-center justify-between p-4 rounded-2xl bg-slate-50 border border-transparent hover:border-blue-100 hover:shadow-sm transition-all">
-                                  <div className="flex items-center gap-4">
-                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-black ${(selectedStatus.toLowerCase().includes('present') || selectedStatus === 'paid') ? 'bg-emerald-100 text-emerald-600' : (selectedStatus.toLowerCase().includes('absent') || selectedStatus === 'unpaid') ? 'bg-rose-100 text-rose-600' : selectedStatus === 'Pending' ? 'bg-slate-200 text-slate-600' : 'bg-amber-100 text-amber-600'}`}>
-                                      {s.name?.substring(0, 2).toUpperCase() || '??'}
-                                    </div>
-                                    <div>
-                                      <p className="font-black text-slate-800 uppercase tracking-tight text-sm">{s.name}</p>
-                                      <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">{s.student_id}</p>
-                                    </div>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          )}
                         </div>
                       ))}
                     </div>
