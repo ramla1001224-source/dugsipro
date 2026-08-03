@@ -413,6 +413,111 @@ router.post('/impersonate/:id', authenticateToken, authorizeRoles('super_admin',
     }
 });
 
+// ── Public: Subdomain-based tenant lookup ────────────────────────────────
+// Called by the Next.js middleware layer (or client tenantHelper.js) when a
+// request arrives on a subdomain (e.g. xamdaan.dugsipro.so).
+// The subdomain is treated as the school shortCode (case-normalised).
+router.get('/by-subdomain/:subdomain', async (req, res) => {
+    try {
+        // Subdomains are lowercase by DNS convention; shortCodes are uppercase in DB
+        const normalized = req.params.subdomain.trim().toUpperCase();
+
+        console.log(`[Schools] Subdomain lookup: ${req.params.subdomain} → ${normalized}`);
+
+        // Validate — only accept alphanumeric + hyphens (valid DNS label chars)
+        if (!/^[A-Z0-9-]+$/.test(normalized)) {
+            return res.status(400).json({ message: 'Invalid subdomain format.' });
+        }
+
+        // Delegate to the same Prisma lookup as /by-code
+        // 1. Try School.shortCode first
+        let school = null;
+        try {
+            school = await prisma.school.findFirst({
+                where: { shortCode: { equals: normalized, mode: 'insensitive' } },
+                select: { id: true, name: true, logo: true, superAdminId: true, isActive: true }
+            });
+        } catch (colErr) {
+            console.warn(`[Schools] School.shortCode lookup failed: ${colErr.message}`);
+        }
+
+        if (school) {
+            if (school.superAdminId) {
+                const superAdmin = await prisma.user.findUnique({
+                    where: { id: school.superAdminId },
+                    select: { id: true, name: true, schoolName: true, isActive: true }
+                });
+                const schools = await prisma.school.findMany({
+                    where: { superAdminId: school.superAdminId },
+                    orderBy: { created_at: 'asc' },
+                    select: { id: true, name: true, logo: true, shortCode: true, isActive: true }
+                });
+                if (schools.length >= 1 && superAdmin) {
+                    const primarySchool = schools[0];
+                    return res.json({
+                        id: superAdmin.id,
+                        name: superAdmin.name,
+                        schoolName: superAdmin.schoolName || primarySchool.name,
+                        logo: school.logo || primarySchool.logo,
+                        shortCode: normalized,
+                        type: 'super_admin',
+                        isActive: superAdmin.isActive,
+                        schools
+                    });
+                }
+            }
+            return res.json({
+                id: school.id,
+                name: school.name,
+                logo: school.logo,
+                shortCode: normalized,
+                type: 'school',
+                isActive: school.isActive
+            });
+        }
+
+        // 2. Fallback: check User.shortCode (super admin group codes)
+        const superAdmin = await prisma.user.findUnique({
+            where: { shortCode: normalized },
+            select: { id: true, name: true, schoolName: true, shortCode: true, role: true, isActive: true }
+        });
+
+        if (superAdmin && ['super_admin', 'owner'].includes(superAdmin.role.toLowerCase())) {
+            const schools = await prisma.school.findMany({
+                where: { superAdminId: superAdmin.id },
+                orderBy: [{ shortCode: 'desc' }, { created_at: 'desc' }],
+                select: { id: true, name: true, logo: true, shortCode: true, isActive: true }
+            });
+            const uniqueSchoolsMap = new Map();
+            for (const s of schools) {
+                if (!uniqueSchoolsMap.has(s.name)) {
+                    uniqueSchoolsMap.set(s.name, s);
+                } else {
+                    const existing = uniqueSchoolsMap.get(s.name);
+                    if (!existing.shortCode && s.shortCode) uniqueSchoolsMap.set(s.name, s);
+                }
+            }
+            const schoolsList = Array.from(uniqueSchoolsMap.values());
+            const firstLogoSchool = schoolsList.find(s => s.logo);
+            return res.json({
+                id: superAdmin.id,
+                name: superAdmin.name,
+                schoolName: superAdmin.schoolName || schoolsList[0]?.name || superAdmin.name,
+                logo: firstLogoSchool?.logo || null,
+                shortCode: superAdmin.shortCode,
+                type: 'super_admin',
+                isActive: superAdmin.isActive,
+                schools: schoolsList
+            });
+        }
+
+        return res.status(404).json({ message: 'Subdomainkaan lama helin. Fadlan hubi cinwaanka.' });
+    } catch (err) {
+        console.error('[Schools] /by-subdomain error:', err.message);
+        res.status(500).json({ message: err.message });
+    }
+});
+
 // Public route to find the Group Owner (Super Admin) by shortcode
 router.get('/by-code/:code', async (req, res) => {
     try {
