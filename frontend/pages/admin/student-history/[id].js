@@ -52,32 +52,30 @@ export default function StudentHistory() {
                 : {}
             if (savedSchoolInfo?.name) setSchoolInfo(savedSchoolInfo)
 
-            // Fetch student info and payments in parallel
-            const [sRes, pRes] = await Promise.all([
+            // Fetch student info, payments AND academic years all in parallel — 1 round-trip instead of 2
+            const [sRes, pRes, yRes] = await Promise.all([
                 axios.get(`${apiUrl}/api/students/${id}`, { headers: headers() }),
-                axios.get(`${apiUrl}/api/payments?studentId=${id}`, { headers: headers() })
+                axios.get(`${apiUrl}/api/payments?studentId=${id}`, { headers: headers() }),
+                axios.get(`${apiUrl}/api/exams/student-history-years/${id}`, { headers: headers() }).catch(() => ({ data: [] }))
             ])
             setStudent(sRes.data)
             setPayments(Array.isArray(pRes.data) ? pRes.data : [])
 
-            // Fetch academic years for this student
+            // Resolve academic year from the years response
             let resolvedYearId = ''
-            try {
-                const yRes = await axios.get(`${apiUrl}/api/exams/student-history-years/${id}`, { headers: headers() })
-                const years = yRes.data || []
-                setAcademicYears(years)
-                if (years.length > 0) {
-                    const current = years.find(y => y.isCurrent) || years[0]
-                    setSelectedYearId(current.id)
-                    resolvedYearId = current.id
-                }
-            } catch (e) {
-                console.error('Years fetch error:', e)
+            const years = yRes.data || []
+            setAcademicYears(years)
+            if (years.length > 0) {
+                const current = years.find(y => y.isCurrent) || years[0]
+                setSelectedYearId(current.id)
+                resolvedYearId = current.id
             }
 
-            // Fetch results and attendance using resolved year
-            await fetchResults(id, resolvedYearId)
-            await fetchAttendance(id, resolvedYearId)
+            // Fetch results AND attendance in parallel — saves another round-trip
+            await Promise.all([
+                fetchResults(id, resolvedYearId),
+                fetchAttendance(id, resolvedYearId)
+            ])
 
         } catch (e) {
             console.error('History fetch error:', e)

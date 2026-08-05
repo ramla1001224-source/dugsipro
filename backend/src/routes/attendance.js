@@ -517,7 +517,7 @@ router.get('/student/:id', authenticateToken, async (req, res) => {
         select: { id: true }
       });
       let sameSchoolIds = [];
-      if (student?.student_id && effectiveSchoolId) {
+      if (student?.student_id && student.student_id.trim() !== '' && effectiveSchoolId) {
         sameSchoolIds = await prisma.student.findMany({
           where: {
             student_id: { equals: student.student_id, mode: 'insensitive' },
@@ -551,7 +551,7 @@ router.get('/student/:id', authenticateToken, async (req, res) => {
       });
       // Add same-school records with matching student_id
       let byStudentId = [];
-      if (targetStudent.student_id && targetStudent.user?.schoolId) {
+      if (targetStudent.student_id && targetStudent.student_id.trim() !== '' && targetStudent.user?.schoolId) {
         byStudentId = await prisma.student.findMany({
           where: {
             student_id: { equals: targetStudent.student_id, mode: 'insensitive' },

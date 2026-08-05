@@ -48,18 +48,18 @@ router.get('/', authenticateToken, async (req, res) => {
         include: { user: true }
       });
       if (targetStudent) {
-        const related = await prisma.student.findMany({
-          where: {
-            OR: [
-              { userId: targetStudent.userId },
-              {
-                AND: [
-                  { student_id: { equals: targetStudent.student_id, mode: 'insensitive' } },
-                  { user: { schoolId: schoolId || targetStudent.user?.schoolId } }
-                ]
-              }
+        const orConditions = [{ id: targetStudent.id }];
+        if (targetStudent.userId) orConditions.push({ userId: targetStudent.userId });
+        if (targetStudent.student_id && targetStudent.student_id.trim() !== '') {
+          orConditions.push({
+            AND: [
+              { student_id: { equals: targetStudent.student_id, mode: 'insensitive' } },
+              { user: { schoolId: schoolId || targetStudent.user?.schoolId } }
             ]
-          },
+          });
+        }
+        const related = await prisma.student.findMany({
+          where: { OR: orConditions },
           select: { id: true }
         });
         const relatedIds = [...new Set(related.map(r => r.id))];
@@ -238,13 +238,13 @@ router.get('/monthly-records', authenticateToken, async (req, res) => {
     if (req.user.role === 'student' || req.user.role === 'Student') {
       const student = await prisma.student.findFirst({ where: { userId: req.user.id } });
       if (student) {
+        const orConditions = [{ id: student.id }];
+        if (student.userId) orConditions.push({ userId: student.userId });
+        if (student.student_id && student.student_id.trim() !== '') {
+          orConditions.push({ student_id: { equals: student.student_id, mode: 'insensitive' } });
+        }
         const related = await prisma.student.findMany({
-          where: {
-            OR: [
-              { userId: student.userId },
-              { student_id: { equals: student.student_id, mode: 'insensitive' } }
-            ]
-          },
+          where: { OR: orConditions },
           include: { Enrollments: { where: { isCurrent: true } } }
         });
         studentIds = related.map(s => s.id);

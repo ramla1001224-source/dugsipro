@@ -1066,25 +1066,32 @@ router.get('/student-history-years/:studentId', authenticateToken, async (req, r
 
         const uniqueYears = filteredYears;
 
-        // Add hasResults and schoolName flags to each year (Aggregate across all related IDs)
-        const yearsWithMetadata = await Promise.all(uniqueYears.map(async (y) => {
-            const hasRes = await prisma.examResult.findFirst({
-                where: {
-                    studentId: { in: relatedIds },
-                    exam: { term: { academicYearId: y.id }, status: { in: ['published', 'locked'] } }
-                }
-            });
-            // Fetch the school associated with this year record
-            const school = await prisma.school.findUnique({
-                where: { id: y.schoolId },
-                select: { name: true }
-            });
-            return {
-                ...y,
-                isCurrent: y.isCurrent && y.schoolId === schoolIdToUse,
-                hasResults: !!hasRes,
-                schoolName: school?.name || 'Unknown'
-            };
+        // Resolve hasResults and schoolNames in 2 bulk queries (not N*2 queries)
+        // 1. Get all exam results for ALL years in one query
+        const allResults = await prisma.examResult.findMany({
+            where: {
+                studentId: { in: relatedIds },
+                exam: { status: { in: ['published', 'locked'] }, term: { academicYearId: { in: Array.from(yearIds) } } }
+            },
+            select: { exam: { select: { term: { select: { academicYearId: true } } } } }
+        });
+        const yearIdsWithResults = new Set(
+            allResults.map(r => r.exam?.term?.academicYearId).filter(Boolean)
+        );
+
+        // 2. Get all schools for ALL years in one query
+        const schoolIds = [...new Set(filteredYears.map(y => y.schoolId).filter(Boolean))];
+        const schools = schoolIds.length > 0 ? await prisma.school.findMany({
+            where: { id: { in: schoolIds } },
+            select: { id: true, name: true }
+        }) : [];
+        const schoolMap = Object.fromEntries(schools.map(s => [s.id, s.name]));
+
+        const yearsWithMetadata = filteredYears.map(y => ({
+            ...y,
+            isCurrent: y.isCurrent && y.schoolId === schoolIdToUse,
+            hasResults: yearIdsWithResults.has(y.id),
+            schoolName: schoolMap[y.schoolId] || 'Unknown'
         }));
 
         res.json(yearsWithMetadata);
