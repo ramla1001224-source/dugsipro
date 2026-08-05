@@ -55,6 +55,18 @@ export default function StudentQuizzes() {
         }
     }, [activeQuiz, timeLeft, result])
 
+    // Anti-cheat system: Auto submit if user leaves the tab
+    useEffect(() => {
+        const handleVisibilityChange = () => {
+            if (document.hidden && activeQuiz && !result && !submitting) {
+                alert('Fadlan ha ka bixin bogga imtixaanka! Imtixaankii si toos ah ayaa loo gudbiyay (Auto-Submitted).')
+                submitQuiz()
+            }
+        }
+        document.addEventListener('visibilitychange', handleVisibilityChange)
+        return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }, [activeQuiz, result, submitting, answers])
+
     const submitQuiz = async () => {
         setSubmitting(true)
         try {
