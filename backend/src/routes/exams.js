@@ -389,18 +389,18 @@ router.get('/student-results', authenticateToken, authorizeRoles('student', 'par
         // 2. Fetch Results with Identity Unification (Resilience)
         // Find all student records that might belong to this same identity 
         // (same userId OR same registration code in this school)
-        const relatedStudents = await prisma.student.findMany({
-            where: {
-                OR: [
-                    { userId: student.userId },
-                    {
-                        AND: [
-                            { student_id: { equals: student.student_id, mode: 'insensitive' } },
-                            { user: { schoolId: schoolIdToUse } }
-                        ]
-                    }
+        const orConditions = [{ id: student.id }];
+        if (student.userId) orConditions.push({ userId: student.userId });
+        if (student.student_id && student.student_id.trim() !== '') {
+            orConditions.push({
+                AND: [
+                    { student_id: { equals: student.student_id, mode: 'insensitive' } },
+                    { user: { schoolId: schoolIdToUse } }
                 ]
-            },
+            });
+        }
+        const relatedStudents = await prisma.student.findMany({
+            where: { OR: orConditions },
             select: { id: true }
         });
         const relatedIds = relatedStudents.map(s => s.id);
@@ -732,23 +732,23 @@ router.get('/student/:studentId', authenticateToken, async (req, res) => {
 
         // 2. Identify All Related Records (Unification Engine)
         // Find all student records that belong to this same identity (same userId OR same registration code)
-        const relatedStudents = await prisma.student.findMany({
-            where: {
-                OR: [
-                    { userId: student.userId },
+        const orConditions = [{ id: student.id }];
+        if (student.userId) orConditions.push({ userId: student.userId });
+        if (studentRegId && studentRegId.trim() !== '') {
+            orConditions.push({
+                AND: [
+                    { student_id: { equals: studentRegId, mode: 'insensitive' } },
                     {
-                        AND: [
-                            { student_id: { equals: studentRegId, mode: 'insensitive' } },
-                            {
-                                OR: [
-                                    { user: { schoolId: schoolIdToUse } },
-                                    { clss: { schoolId: schoolIdToUse } }
-                                ]
-                            }
+                        OR: [
+                            { user: { schoolId: schoolIdToUse } },
+                            { clss: { schoolId: schoolIdToUse } }
                         ]
                     }
                 ]
-            },
+            });
+        }
+        const relatedStudents = await prisma.student.findMany({
+            where: { OR: orConditions },
             select: { id: true, student_id: true }
         });
         const relatedIds = [...new Set(relatedStudents.map(s => s.id))];
@@ -1012,18 +1012,18 @@ router.get('/student-history-years/:studentId', authenticateToken, async (req, r
 
         // 1. Identity Normalization (Resilience)
         // Find all student records that belong to this same identity
-        const relatedStudents = await studentModel.findMany({
-            where: {
-                OR: [
-                    { userId: student.userId },
-                    {
-                        AND: [
-                            { student_id: { equals: student.student_id, mode: 'insensitive' } },
-                            { user: { schoolId: schoolIdToUse } }
-                        ]
-                    }
+        const orConditions = [{ id: student.id }];
+        if (student.userId) orConditions.push({ userId: student.userId });
+        if (student.student_id && student.student_id.trim() !== '') {
+            orConditions.push({
+                AND: [
+                    { student_id: { equals: student.student_id, mode: 'insensitive' } },
+                    { user: { schoolId: schoolIdToUse } }
                 ]
-            },
+            });
+        }
+        const relatedStudents = await studentModel.findMany({
+            where: { OR: orConditions },
             select: { id: true }
         });
         const relatedIds = relatedStudents.map(rs => rs.id);
@@ -2673,24 +2673,21 @@ router.get('/student-results/:studentId', authenticateToken, async (req, res) =>
         // 2. Identity Normalization (Resilience)
         // Find all student records that belong to this same identity
         const isAdmin = ['admin', 'super_admin', 'owner'].includes((req.user?.role || '').toLowerCase());
-        const relatedStudents = await prisma.student.findMany({
-            where: {
-                OR: [
-                    { userId: student.userId },
-                    {
-                        AND: [
-                            { student_id: { equals: student.student_id, mode: 'insensitive' } },
-                            // If admin, we search globally across all schools to unify history
-                            // If student/parent, we still restrict to the same school for security
-                            isAdmin ? {} : { user: { schoolId } }
-                        ]
-                    },
-                    // ULTIMATE NAME-BASED HEALING for Admins:
-                    // If results are missing due to disparate records/ghost identities,
-                    // we merge any account sharing the exact same name as a last resort.
-                    isAdmin ? { user: { name: { equals: student.user?.name, mode: 'insensitive' } } } : {}
+        const orConditions = [{ id: student.id }];
+        if (student.userId) orConditions.push({ userId: student.userId });
+        if (student.student_id && student.student_id.trim() !== '') {
+            orConditions.push({
+                AND: [
+                    { student_id: { equals: student.student_id, mode: 'insensitive' } },
+                    isAdmin ? {} : { user: { schoolId } }
                 ]
-            },
+            });
+        }
+        if (isAdmin && student.user?.name && student.user.name.trim() !== '') {
+            orConditions.push({ user: { name: { equals: student.user.name, mode: 'insensitive' } } });
+        }
+        const relatedStudents = await prisma.student.findMany({
+            where: { OR: orConditions },
             select: { id: true }
         });
         const relatedIds = relatedStudents.map(rs => rs.id);

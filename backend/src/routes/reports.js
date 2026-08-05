@@ -40,18 +40,18 @@ router.get('/student-report/:studentId', authenticateToken, async (req, res) => 
 
     // Find all related IDs to merge historical data
     const isAdmin = ['admin', 'super_admin', 'owner'].includes((req.user?.role || '').toLowerCase());
-    const relatedStudents = await prisma.student.findMany({
-      where: {
-        OR: [
-          { userId: studentCheck.userId },
-          {
-            AND: [
-              { student_id: { equals: studentCheck.student_id, mode: 'insensitive' } },
-              isAdmin ? {} : { user: { schoolId } }
-            ]
-          }
+    const orConditions = [{ id: studentCheck.id }];
+    if (studentCheck.userId) orConditions.push({ userId: studentCheck.userId });
+    if (studentCheck.student_id && studentCheck.student_id.trim() !== '') {
+      orConditions.push({
+        AND: [
+          { student_id: { equals: studentCheck.student_id, mode: 'insensitive' } },
+          isAdmin ? {} : { user: { schoolId } }
         ]
-      },
+      });
+    }
+    const relatedStudents = await prisma.student.findMany({
+      where: { OR: orConditions },
       select: { id: true }
     });
     const relatedIds = relatedStudents.map(rs => rs.id);

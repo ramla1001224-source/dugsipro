@@ -73,15 +73,15 @@ router.get('/', authenticateToken, async (req, res) => {
       const student = await prisma.student.findFirst({ where: { userId: req.user.id } });
       if (!student) return res.status(404).json({ message: 'Student record not found' });
       
-      const relatedStudents = await prisma.student.findMany({
-        where: {
-          OR: [
-            { userId: student.userId },
-            { student_id: student.student_id }
-          ]
-        },
-        select: { id: true }
-      });
+        const orConditions = [{ id: student.id }];
+        if (student.userId) orConditions.push({ userId: student.userId });
+        if (student.student_id && student.student_id.trim() !== '') {
+          orConditions.push({ student_id: student.student_id });
+        }
+        const relatedStudents = await prisma.student.findMany({
+          where: { OR: orConditions },
+          select: { id: true }
+        });
       const relatedIds = [...new Set(relatedStudents.map(s => s.id))];
       where = { studentId: { in: relatedIds }, ...(schoolId ? { schoolId } : {}) };
     } else if (req.user.role === 'parent') {
