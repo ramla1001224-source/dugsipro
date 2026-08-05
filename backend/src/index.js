@@ -69,6 +69,7 @@ const backupRoutes = require('./routes/backup');
 const libraryRoutes = require('./routes/library');
 const elearningRoutes = require('./routes/elearning'); // New E-Learning Routes
 const smsRoutes = require('./routes/sms');
+const emailRoutes = require('./routes/email'); // New Email Routes
 
 const syncRoutes = require('./routes/sync');
 const sectionsRoutes = require('./routes/sections'); // New
@@ -192,6 +193,7 @@ app.use('/api/sections', sectionsRoutes); // New
 app.use('/api/reports', reportRoutes);
 app.use('/api/lessons', lessonsRoutes); // New
 app.use('/api/sms', smsRoutes);
+app.use('/api/email', emailRoutes); // New Email Routes
 app.use('/api/seed', require('./routes/seed'));
 
 console.log('[DEBUG] Error handler middleware mounted');
