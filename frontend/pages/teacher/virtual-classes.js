@@ -74,8 +74,9 @@ export default function TeacherVirtualClasses() {
     }
 
     const endMeeting = async (id) => {
+        if (!confirm('Ma hubtaa inaad soo gabagabayso fasalkan? Si toos ah ayuu system-ka uga tirtirmayaa.')) return
         try {
-            await axios.put(`${apiUrl}/api/virtual-classes/${id}/status`, { status: 'ended' }, {
+            await axios.delete(`${apiUrl}/api/virtual-classes/${id}`, {
                 headers: { Authorization: `Bearer ${getToken()}` }
             })
             fetchData()
