@@ -50,6 +50,7 @@ const navConfig = (t) => ({
     { label: `📢 ${t('announcements')}`, section: 'comm', href: '/admin/announcements' },
     { label: `💬 SMS Waalidiinta`, section: 'comm', href: '/admin/sms-parents' },
     { label: `📧 Email Waalidiinta`, section: 'comm', href: '/admin/email-parents' },
+    { label: `⚙️ Email Settings`, section: 'comm', href: '/admin/email-settings' },
     { label: `🔔 ${t('notifications')}`, section: 'comm', href: '/admin/notifications' },
     { label: `📅 ${t('events')}`, section: 'comm', href: '/admin/events' },
     { label: `⚙️ ${t('settings')}`, section: 'system', href: '/settings' },
