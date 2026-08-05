@@ -7,9 +7,6 @@ export default function AdminSettings() {
     const [gradingScale, setGradingScale] = useState([])
     const [gatewaySettings, setGatewaySettings] = useState({ provider: 'SAHAL', merchantUid: '', apiUserId: '', apiKey: '', isActive: false })
     const [smsSettings, setSmsSettings] = useState({ provider: 'generic', apiUrl: '', apiKey: '', senderId: 'DugsiPro', isActive: false })
-    const [emailSettings, setEmailSettings] = useState({ gmailAddress: '', clientId: '', clientSecret: '', refreshToken: '', isActive: false })
-    const [testEmailAddress, setTestEmailAddress] = useState('')
-    const [testingEmail, setTestingEmail] = useState(false)
     const [saving, setSaving] = useState(false)
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4001'
     const headers = () => ({ Authorization: `Bearer ${localStorage.getItem('token')}` })
@@ -19,9 +16,8 @@ export default function AdminSettings() {
             axios.get(`${apiUrl}/api/settings`, { headers: headers() }).catch(() => ({ data: {} })),
             axios.get(`${apiUrl}/api/settings/grading`, { headers: headers() }).catch(() => ({ data: [] })),
             axios.get(`${apiUrl}/api/payment-gateways`, { headers: headers() }).catch(() => ({ data: { provider: 'SAHAL', merchantUid: '', apiUserId: '', apiKey: '', isActive: false } })),
-            axios.get(`${apiUrl}/api/sms/settings`, { headers: headers() }).catch(() => ({ data: { provider: 'generic', apiUrl: '', apiKey: '', senderId: 'DugsiPro', isActive: false } })),
-            axios.get(`${apiUrl}/api/email/settings`, { headers: headers() }).catch(() => ({ data: { gmailAddress: '', clientId: '', clientSecret: '', refreshToken: '', isActive: false } }))
-        ]).then(([s, g, p, sms, email]) => {
+            axios.get(`${apiUrl}/api/sms/settings`, { headers: headers() }).catch(() => ({ data: { provider: 'generic', apiUrl: '', apiKey: '', senderId: 'DugsiPro', isActive: false } }))
+        ]).then(([s, g, p, sms]) => {
             setSettings(s.data)
             setGradingScale(g.data.length ? g.data : [
                 { grade: 'A', minScore: 90, maxScore: 100, gpa: 4.0 },
@@ -34,7 +30,6 @@ export default function AdminSettings() {
             ])
             if (p.data && p.data.provider) setGatewaySettings(p.data)
             if (sms.data) setSmsSettings(sms.data)
-            if (email.data) setEmailSettings(email.data)
         })
     }, [])
 
@@ -45,7 +40,6 @@ export default function AdminSettings() {
             await axios.post(`${apiUrl}/api/settings/grading`, { scales: gradingScale }, { headers: headers() })
             await axios.post(`${apiUrl}/api/payment-gateways`, gatewaySettings, { headers: headers() })
             await axios.post(`${apiUrl}/api/sms/settings`, smsSettings, { headers: headers() })
-            await axios.post(`${apiUrl}/api/email/settings`, emailSettings, { headers: headers() })
             alert('Settings saved successfully!')
         } catch (e) { alert('Error saving settings') }
         setSaving(false)
@@ -64,21 +58,6 @@ export default function AdminSettings() {
         } catch (err) {
             alert(err.response?.data?.message || 'Qalad ayaa dhacay xiligii tirtirista.');
         }
-    }
-
-    const handleTestEmail = async () => {
-        if (!testEmailAddress || !emailSettings.gmailAddress || !emailSettings.clientId || !emailSettings.clientSecret || !emailSettings.refreshToken) {
-            alert("Fadlan buuxi dhamaan xogta Email Settings iyo email-ka tijaabada.");
-            return;
-        }
-        setTestingEmail(true);
-        try {
-            const res = await axios.post(`${apiUrl}/api/email/test`, { ...emailSettings, toEmail: testEmailAddress }, { headers: headers() });
-            alert(res.data.message || 'Fariinta waa la diray!');
-        } catch (err) {
-            alert(err.response?.data?.message || 'Waxaa dhacay qalad marka la dirayay email-ka.');
-        }
-        setTestingEmail(false);
     }
 
     const settingFields = [
@@ -274,69 +253,6 @@ export default function AdminSettings() {
                     <div className="mt-8 p-5 bg-blue-50/50 rounded-2xl border border-blue-100/50 text-[10px] text-blue-600 font-bold leading-relaxed flex gap-3">
                         <span className="text-lg">ℹ️</span>
                         <span>Fariimaha waxaa si otomaatig ah loogu diraa waalidiinta marka ardayga la calaamadiyo maqnaansho (Absent) ama marka natiijada imtixaanka la daabaco.</span>
-                    </div>
-                </div>
-
-                <div className="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                    <div className="flex items-center justify-between mb-6">
-                        <div className="flex items-center gap-3">
-                            <div className="bg-red-50 p-2 rounded-lg">
-                                <svg className="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                                </svg>
-                            </div>
-                            <h3 className="text-lg font-bold text-slate-800">Email Notification Service (Gmail OAuth2)</h3>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <span className={`text-[10px] font-black uppercase tracking-widest ${emailSettings.isActive ? 'text-green-500' : 'text-gray-400'}`}>
-                                {emailSettings.isActive ? 'Active' : 'Inactive'}
-                            </span>
-                            <button
-                                onClick={() => setEmailSettings({ ...emailSettings, isActive: !emailSettings.isActive })}
-                                className={`w-12 h-6 rounded-full transition-all relative ${emailSettings.isActive ? 'bg-green-500' : 'bg-gray-200'}`}
-                            >
-                                <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${emailSettings.isActive ? 'right-1' : 'left-1'}`}></div>
-                            </button>
-                        </div>
-                    </div>
-                    
-                    <p className="text-xs text-slate-400 mb-6 uppercase font-black tracking-widest">Gmail API Credentials</p>
-                    <div className="space-y-4">
-                        <div>
-                            <label className="text-xs font-bold text-gray-400 uppercase mb-1 block">Gmail Address</label>
-                            <input className="w-full p-3 rounded-xl border focus:ring-2 focus:ring-blue-500 outline-none font-mono text-sm" placeholder="school@gmail.com" value={emailSettings.gmailAddress || ''} onChange={e => setEmailSettings({ ...emailSettings, gmailAddress: e.target.value })} />
-                        </div>
-                        <div>
-                            <label className="text-xs font-bold text-gray-400 uppercase mb-1 block">Client ID</label>
-                            <input className="w-full p-3 rounded-xl border focus:ring-2 focus:ring-blue-500 outline-none font-mono text-sm" placeholder="123456-abcde.apps.googleusercontent.com" value={emailSettings.clientId || ''} onChange={e => setEmailSettings({ ...emailSettings, clientId: e.target.value })} />
-                        </div>
-                        <div>
-                            <label className="text-xs font-bold text-gray-400 uppercase mb-1 block">Client Secret</label>
-                            <input type="password" title={emailSettings.clientSecret} className="w-full p-3 rounded-xl border focus:ring-2 focus:ring-blue-500 outline-none font-mono text-sm" placeholder="GOCSPX-xxxxxx" value={emailSettings.clientSecret || ''} onChange={e => setEmailSettings({ ...emailSettings, clientSecret: e.target.value })} />
-                        </div>
-                        <div>
-                            <label className="text-xs font-bold text-gray-400 uppercase mb-1 block">Refresh Token</label>
-                            <input type="password" title={emailSettings.refreshToken} className="w-full p-3 rounded-xl border focus:ring-2 focus:ring-blue-500 outline-none font-mono text-sm" placeholder="1//0exxxxx" value={emailSettings.refreshToken || ''} onChange={e => setEmailSettings({ ...emailSettings, refreshToken: e.target.value })} />
-                        </div>
-                    </div>
-
-                    <div className="mt-8 border-t pt-6">
-                        <p className="text-xs font-bold text-gray-400 uppercase mb-3">Test Email Connection</p>
-                        <div className="flex gap-3">
-                            <input 
-                                className="flex-1 p-3 rounded-xl border focus:ring-2 focus:ring-blue-500 outline-none text-sm" 
-                                placeholder="Enter email address to test" 
-                                value={testEmailAddress} 
-                                onChange={e => setTestEmailAddress(e.target.value)} 
-                            />
-                            <button 
-                                onClick={handleTestEmail} 
-                                disabled={testingEmail}
-                                className="bg-red-50 text-red-600 hover:bg-red-100 px-4 py-2 rounded-xl font-bold text-sm transition-all disabled:opacity-50"
-                            >
-                                {testingEmail ? 'Testing...' : 'Send Test'}
-                            </button>
-                        </div>
                     </div>
                 </div>
 

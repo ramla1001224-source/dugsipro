@@ -50,8 +50,6 @@ model School {
   VirtualClasses        VirtualClass[]
   SmsSettings           SmsSetting?
   SmsLogs               SmsLog[]
-  EmailSetting          EmailSetting?
-  EmailLogs             EmailLog[]
 }
 
 model User {
@@ -897,35 +895,4 @@ model ExamCardOverride {
   created_at DateTime @default(now())
 
   @@unique([examId, studentId])
-}
-
-model EmailSetting {
-  id           String   @id @default(uuid())
-  schoolId     String   @unique
-  gmailAddress String?  // e.g. xamdaanschool@gmail.com
-  clientId     String?  // Google OAuth2 Client ID
-  clientSecret String?  // Google OAuth2 Client Secret
-  refreshToken String?  // OAuth2 Refresh Token
-  isActive     Boolean  @default(false)
-  created_at   DateTime @default(now())
-  updated_at   DateTime @updatedAt
-  school       School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-}
-
-model EmailLog {
-  id          String   @id @default(uuid())
-  schoolId    String
-  studentId   String?
-  toEmail     String
-  subject     String
-  type        String?  // attendance, exam_result, notice, bulk, test
-  status      String   @default("sent") // sent, failed
-  errorMsg    String?
-  month       Int
-  year        Int
-  created_at  DateTime @default(now())
-  school      School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-
-  @@index([schoolId, year, month])
-  @@index([schoolId, type])
 }
