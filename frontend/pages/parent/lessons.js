@@ -1,10 +1,12 @@
 import Layout from '../../components/Layout'
 import { useEffect, useState } from 'react'
+import VideoModal from '../../components/VideoModal'
 import axios from 'axios'
 
 export default function ParentVideoLessons() {
     const [lessons, setLessons] = useState([])
     const [loading, setLoading] = useState(true)
+    const [selectedVideo, setSelectedVideo] = useState(null)
     
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4001'
     const getHeaders = () => ({ Authorization: `Bearer ${localStorage.getItem('token')}` })
@@ -59,18 +61,23 @@ export default function ParentVideoLessons() {
                                 </div>
                             </div>
                             <p className="text-xs text-slate-500 font-medium mb-8 line-clamp-2 h-8">{l.description || 'Ma jiro faahfaahin laga bixiyay casharka.'}</p>
-                            <a 
-                                href={l.videoUrl} 
-                                target="_blank" 
-                                rel="noreferrer" 
+                            <button 
+                                onClick={() => setSelectedVideo({ url: l.videoUrl, title: l.title })}
                                 className="block w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-center text-[10px] uppercase tracking-widest hover:bg-blue-600 shadow-xl shadow-slate-200 transition-all"
                             >
                                 DAAWO CASHARKA HADDA
-                            </a>
+                            </button>
                         </div>
                     </div>
                 ))}
             </div>
+            
+            <VideoModal 
+                isOpen={!!selectedVideo} 
+                onClose={() => setSelectedVideo(null)} 
+                videoUrl={selectedVideo?.url} 
+                title={selectedVideo?.title} 
+            />
         </Layout>
     )
 }

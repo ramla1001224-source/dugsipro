@@ -7,6 +7,7 @@ import '../../config/api_config.dart';
 import '../../main.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
+import 'video_player_screen.dart';
 
 class VideoLessonsScreen extends StatefulWidget {
   const VideoLessonsScreen({super.key});
@@ -564,9 +565,16 @@ class _VideoLessonsScreenState extends State<VideoLessonsScreen> {
                   children: [
                     Expanded(
                       child: InkWell(
-                        onTap: () async {
-                          final url = Uri.parse(l['videoUrl'] ?? '');
-                          if (await canLaunchUrl(url)) await launchUrl(url);
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => VideoPlayerScreen(
+                                videoUrl: l['videoUrl'] ?? '',
+                                title: title,
+                              ),
+                            ),
+                          );
                         },
                         borderRadius: BorderRadius.circular(14.r),
                         child: Container(

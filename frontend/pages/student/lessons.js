@@ -1,5 +1,6 @@
 import Layout from '../../components/Layout'
 import { useEffect, useState, useMemo } from 'react'
+import VideoModal from '../../components/VideoModal'
 import axios from 'axios'
 
 export default function StudentLessons() {
@@ -7,6 +8,7 @@ export default function StudentLessons() {
     const [loading, setLoading] = useState(true)
     const [activeTab, setActiveTab] = useState('active')
     const [subjectFilter, setSubjectFilter] = useState('all')
+    const [selectedVideo, setSelectedVideo] = useState(null)
 
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4001'
     const getHeaders = () => ({ Authorization: `Bearer ${localStorage.getItem('token')}` })
@@ -165,9 +167,9 @@ export default function StudentLessons() {
                                 </div>
                                 <div className="absolute inset-0 flex items-center justify-center">
                                     {ytId && (
-                                        <a href={l.videoUrl} target="_blank" rel="noreferrer" className="w-14 h-14 bg-red-600/90 rounded-full flex items-center justify-center shadow-lg shadow-red-500/40 transform group-hover:scale-110 transition-transform">
+                                        <button onClick={() => setSelectedVideo({ url: l.videoUrl, title: title })} className="w-14 h-14 bg-red-600/90 rounded-full flex items-center justify-center shadow-lg shadow-red-500/40 transform group-hover:scale-110 transition-transform">
                                             <svg className="w-8 h-8 text-white ml-1" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-                                        </a>
+                                        </button>
                                     )}
                                 </div>
                             </div>
@@ -194,16 +196,23 @@ export default function StudentLessons() {
                                         <span className="text-[13px] font-bold text-slate-600 truncate">{formattedDate}</span>
                                     </div>
                                 </div>
-                                <a href={l.videoUrl} target="_blank" rel="noreferrer"
+                                <button onClick={() => setSelectedVideo({ url: l.videoUrl, title: title })}
                                     className="flex items-center justify-center gap-2 w-full py-3.5 bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-600 rounded-xl transition-colors mt-auto">
                                     <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/></svg>
                                     <span className="font-black text-[13px] tracking-wide">WATCH VIDEO</span>
-                                </a>
+                                </button>
                             </div>
                         </div>
                     )
                 })}
             </div>
+            
+            <VideoModal 
+                isOpen={!!selectedVideo} 
+                onClose={() => setSelectedVideo(null)} 
+                videoUrl={selectedVideo?.url} 
+                title={selectedVideo?.title} 
+            />
         </Layout>
     )
 }

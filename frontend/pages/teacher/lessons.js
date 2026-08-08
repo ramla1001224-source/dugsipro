@@ -1,5 +1,6 @@
 import Layout from '../../components/Layout'
 import { useEffect, useState } from 'react'
+import VideoModal from '../../components/VideoModal'
 import axios from 'axios'
 
 export default function TeacherLessons() {
@@ -20,6 +21,7 @@ export default function TeacherLessons() {
     })
     const [subjects, setSubjects] = useState([])
     const [activeTab, setActiveTab] = useState('active') // active, history
+    const [selectedVideo, setSelectedVideo] = useState(null)
 
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4001'
     const getHeaders = () => ({ Authorization: `Bearer ${localStorage.getItem('token')}` })
@@ -235,9 +237,9 @@ export default function TeacherLessons() {
                                 </div>
                                 <div className="absolute inset-0 flex items-center justify-center">
                                     {ytId ? (
-                                        <a href={l.videoUrl} target="_blank" rel="noreferrer" className="w-14 h-14 bg-red-600/90 rounded-full flex items-center justify-center shadow-lg shadow-red-500/40 transform group-hover:scale-110 transition-transform cursor-pointer">
+                                        <button onClick={() => setSelectedVideo({ url: l.videoUrl, title: title })} className="w-14 h-14 bg-red-600/90 rounded-full flex items-center justify-center shadow-lg shadow-red-500/40 transform group-hover:scale-110 transition-transform cursor-pointer">
                                             <svg className="w-8 h-8 text-white ml-1" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-                                        </a>
+                                        </button>
                                     ) : null}
                                 </div>
                             </div>
@@ -268,15 +270,13 @@ export default function TeacherLessons() {
                                 </div>
                                 <div className="mt-auto space-y-2">
                                     <div className="flex gap-2">
-                                        <a 
-                                            href={l.videoUrl} 
-                                            target="_blank" 
-                                            rel="noreferrer" 
+                                        <button 
+                                            onClick={() => setSelectedVideo({ url: l.videoUrl, title: title })}
                                             className="flex-1 flex items-center justify-center gap-2 py-3 bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-600 rounded-xl transition-colors"
                                         >
                                             <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/></svg>
                                             <span className="font-black text-[10px] tracking-wide uppercase">WATCH</span>
-                                        </a>
+                                        </button>
                                         <button onClick={() => deleteLesson(l.id)} className="px-4 bg-red-50 text-red-500 rounded-xl hover:bg-red-100 transition-all border border-red-200">
                                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                                         </button>
@@ -291,6 +291,13 @@ export default function TeacherLessons() {
                 </div>
                 </>
             )}
+            
+            <VideoModal 
+                isOpen={!!selectedVideo} 
+                onClose={() => setSelectedVideo(null)} 
+                videoUrl={selectedVideo?.url} 
+                title={selectedVideo?.title} 
+            />
         </Layout>
     )
 }
