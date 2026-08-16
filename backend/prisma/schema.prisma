@@ -66,6 +66,11 @@ model User {
   isSmsEnabled      Boolean        @default(false)
   fcmToken          String?
   schoolName        String?
+  customSmsApiKey   String?
+  customSmsApiUrl   String?
+  customSmsSenderId String?
+  customSmsProvider String?
+  useCustomSmsApi   Boolean        @default(false)
   AuditLogs         AuditLog[]
   ReceivedMessages  Message[]      @relation("ReceivedMessages")
   SentMessages      Message[]      @relation("SentMessages")

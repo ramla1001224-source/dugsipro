@@ -55,6 +55,15 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   final _emailCtrl = TextEditingController();
   final _addressCtrl = TextEditingController();
 
+  // Custom SMS API variables
+  bool _apiSaving = false;
+  Map<String, dynamic>? _superAdminSmsConfig;
+  bool _useCustomSmsApi = false;
+  String _customSmsProvider = 'hormuud';
+  final _customSmsApiUrlCtrl = TextEditingController();
+  final _customSmsApiKeyCtrl = TextEditingController();
+  final _customSmsSenderIdCtrl = TextEditingController();
+
   @override
   void initState() {
     super.initState();
@@ -68,6 +77,10 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     _phoneCtrl.dispose();
     _emailCtrl.dispose();
     _addressCtrl.dispose();
+    _searchCtrl.dispose();
+    _customSmsApiUrlCtrl.dispose();
+    _customSmsApiKeyCtrl.dispose();
+    _customSmsSenderIdCtrl.dispose();
     super.dispose();
   }
 
@@ -75,14 +88,63 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     final role = await _auth.getRole();
     if (mounted) {
       setState(() => _role = role ?? 'super_admin');
-      await Future.wait([
+      
+      final futures = <Future<void>>[
         _fetchGlobalStats(),
         _fetchSmsNetworkStats(),
         _fetchSchools(),
-      ]);
+      ];
+      
+      if (_role == 'super_admin') {
+        futures.add(_fetchSuperAdminApiSettings());
+      }
+      
+      await Future.wait(futures);
     }
   }
 
+  Future<void> _fetchSuperAdminApiSettings() async {
+    try {
+      final res = await _api.get('/super-admin/sms-api');
+      if (mounted) {
+        setState(() {
+          _superAdminSmsConfig = res.data is Map ? res.data as Map<String, dynamic> : null;
+          if (_superAdminSmsConfig != null) {
+            _useCustomSmsApi = _superAdminSmsConfig!['useCustomSmsApi'] == true;
+            _customSmsProvider = _superAdminSmsConfig!['customSmsProvider'] ?? 'hormuud';
+            _customSmsApiUrlCtrl.text = _superAdminSmsConfig!['customSmsApiUrl'] ?? '';
+            _customSmsApiKeyCtrl.text = _superAdminSmsConfig!['customSmsApiKey'] ?? '';
+            _customSmsSenderIdCtrl.text = _superAdminSmsConfig!['customSmsSenderId'] ?? '';
+          }
+        });
+      }
+    } catch (e) {
+      // Ignore
+    }
+  }
+
+  Future<void> _saveSuperAdminApiSettings() async {
+    setState(() => _apiSaving = true);
+    try {
+      await _api.put('/super-admin/sms-api', data: {
+        'useCustomSmsApi': _useCustomSmsApi,
+        'customSmsProvider': _customSmsProvider,
+        'customSmsApiUrl': _customSmsApiUrlCtrl.text.trim(),
+        'customSmsApiKey': _customSmsApiKeyCtrl.text.trim(),
+        'customSmsSenderId': _customSmsSenderIdCtrl.text.trim(),
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('API Settings saved successfully', style: TextStyle(fontWeight: FontWeight.bold))));
+        _fetchSuperAdminApiSettings();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to save API settings', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)), backgroundColor: Colors.red));
+      }
+    } finally {
+      if (mounted) setState(() => _apiSaving = false);
+    }
+  }
 
   Future<void> _fetchGlobalStats() async {
     try {
@@ -480,6 +542,163 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     }
   }
 
+  void _showApiSettingsModal() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheetState) => Container(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(ctx).viewInsets.bottom,
+          ),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(30.r)),
+          ),
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: EdgeInsets.all(24.w),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Center(
+                    child: Container(width: 40.w, height: 4.h, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2.r))),
+                  ),
+                  SizedBox(height: 24.h),
+                  Text('Custom SMS API', style: TextStyle(fontSize: 20.sp, fontWeight: FontWeight.w900)),
+                  Text('Override Global SMS Gateway Settings', style: TextStyle(color: Colors.grey, fontSize: 12.sp, fontWeight: FontWeight.bold)),
+                  SizedBox(height: 24.h),
+                  
+                  // Toggle Custom API
+                  Container(
+                    padding: EdgeInsets.all(16.w),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.withValues(alpha: 0.05),
+                      borderRadius: BorderRadius.circular(16.r),
+                      border: Border.all(color: Colors.blue.withValues(alpha: 0.1)),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Enable Custom API', style: TextStyle(fontSize: 14.sp, fontWeight: FontWeight.w900, color: Colors.blue.shade900)),
+                            Text('Bypass System Owner API', style: TextStyle(fontSize: 10.sp, fontWeight: FontWeight.bold, color: Colors.blue.shade600)),
+                          ],
+                        ),
+                        Switch(
+                          value: _useCustomSmsApi,
+                          activeColor: Colors.blue,
+                          onChanged: (val) {
+                            setSheetState(() => _useCustomSmsApi = val);
+                            setState(() => _useCustomSmsApi = val);
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                  SizedBox(height: 20.h),
+                  
+                  Text('Provider', style: TextStyle(fontSize: 10.sp, fontWeight: FontWeight.bold, color: Colors.grey)),
+                  SizedBox(height: 8.h),
+                  DropdownButtonFormField<String>(
+                    value: _customSmsProvider,
+                    decoration: InputDecoration(
+                      filled: true,
+                      fillColor: Colors.grey[50],
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.r), borderSide: BorderSide(color: Colors.grey[200]!)),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12.r), borderSide: BorderSide(color: Colors.grey[200]!)),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+                    ),
+                    items: const [
+                      DropdownMenuItem(value: 'hormuud', child: Text('Hormuud Telecom', style: TextStyle(fontWeight: FontWeight.bold))),
+                      DropdownMenuItem(value: 'golis', child: Text('Golis Telecom', style: TextStyle(fontWeight: FontWeight.bold))),
+                    ],
+                    onChanged: _useCustomSmsApi ? (val) {
+                      setSheetState(() => _customSmsProvider = val!);
+                      setState(() => _customSmsProvider = val!);
+                    } : null,
+                  ),
+                  SizedBox(height: 16.h),
+                  
+                  TextField(
+                    controller: _customSmsApiUrlCtrl,
+                    enabled: _useCustomSmsApi,
+                    decoration: InputDecoration(
+                      labelText: 'Gateway URL',
+                      labelStyle: TextStyle(fontSize: 12.sp, fontWeight: FontWeight.bold, color: Colors.grey),
+                      filled: true,
+                      fillColor: Colors.grey[50],
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.r), borderSide: BorderSide(color: Colors.grey[200]!)),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12.r), borderSide: BorderSide(color: Colors.grey[200]!)),
+                    ),
+                  ),
+                  SizedBox(height: 16.h),
+                  
+                  TextField(
+                    controller: _customSmsApiKeyCtrl,
+                    enabled: _useCustomSmsApi,
+                    decoration: InputDecoration(
+                      labelText: 'API Key / Token',
+                      labelStyle: TextStyle(fontSize: 12.sp, fontWeight: FontWeight.bold, color: Colors.grey),
+                      filled: true,
+                      fillColor: Colors.grey[50],
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.r), borderSide: BorderSide(color: Colors.grey[200]!)),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12.r), borderSide: BorderSide(color: Colors.grey[200]!)),
+                    ),
+                  ),
+                  SizedBox(height: 16.h),
+                  
+                  TextField(
+                    controller: _customSmsSenderIdCtrl,
+                    enabled: _useCustomSmsApi,
+                    decoration: InputDecoration(
+                      labelText: 'Sender ID (Optional)',
+                      labelStyle: TextStyle(fontSize: 12.sp, fontWeight: FontWeight.bold, color: Colors.grey),
+                      filled: true,
+                      fillColor: Colors.grey[50],
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.r), borderSide: BorderSide(color: Colors.grey[200]!)),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12.r), borderSide: BorderSide(color: Colors.grey[200]!)),
+                    ),
+                  ),
+                  SizedBox(height: 32.h),
+                  
+                  SizedBox(
+                    width: double.infinity,
+                    height: 56.h,
+                    child: ElevatedButton(
+                      onPressed: _apiSaving ? null : () async {
+                        setSheetState(() => _apiSaving = true);
+                        await _saveSuperAdminApiSettings();
+                        if (mounted) {
+                          setSheetState(() => _apiSaving = false);
+                          Navigator.pop(ctx);
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue.shade600,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+                        elevation: 0,
+                      ),
+                      child: _apiSaving 
+                          ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3))
+                          : Text('SAVE SETTINGS', style: TextStyle(fontSize: 14.sp, fontWeight: FontWeight.w900, letterSpacing: 1)),
+                    ),
+                  ),
+                  SizedBox(height: 16.h),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   int get activeCount => _schools.where((s) => s['isActive'] == true).length;
   int get lockedCount => _schools.where((s) => s['isActive'] == false).length;
 
@@ -815,9 +1034,28 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'GABALKA SMS-KA',
-                        style: TextStyle(color: Colors.white, fontSize: 13.sp, fontWeight: FontWeight.w900, letterSpacing: -0.5),
+                      Row(
+                        children: [
+                          Text(
+                            'GABALKA SMS-KA',
+                            style: TextStyle(color: Colors.white, fontSize: 13.sp, fontWeight: FontWeight.w900, letterSpacing: -0.5),
+                          ),
+                          if (_superAdminSmsConfig != null && _superAdminSmsConfig!['useCustomSmsApi'] == true) ...[
+                            SizedBox(width: 8.w),
+                            Container(
+                              padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+                              decoration: BoxDecoration(
+                                color: Colors.blue.withValues(alpha: 0.2),
+                                borderRadius: BorderRadius.circular(4.r),
+                                border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
+                              ),
+                              child: Text(
+                                'CUSTOM API',
+                                style: TextStyle(color: Colors.blue.shade400, fontSize: 7.sp, fontWeight: FontWeight.w900, letterSpacing: 1),
+                              ),
+                            ),
+                          ]
+                        ],
                       ),
                       Text(
                         isEnabled ? 'NIDAAMKU WAADIID' : 'NIDAAMKA WAA LA XADIDAY',
@@ -832,29 +1070,59 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                   ),
                 ],
               ),
-              InkWell(
-                onTap: () {
-                  _fetchGlobalSmsLogs();
-                  _showGlobalSmsModal();
-                },
-                child: Container(
-                  padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.05),
-                    borderRadius: BorderRadius.circular(10.r),
-                    border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-                  ),
-                  child: Row(
-                    children: [
-                      Text(
-                        'KAYDKA',
-                        style: TextStyle(color: Colors.white, fontSize: 9.sp, fontWeight: FontWeight.w900, letterSpacing: 1),
+              Row(
+                children: [
+                  if (_role == 'super_admin') ...[
+                    InkWell(
+                      onTap: () => _showApiSettingsModal(),
+                      child: Container(
+                        padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+                        decoration: BoxDecoration(
+                          color: (_superAdminSmsConfig != null && _superAdminSmsConfig!['useCustomSmsApi'] == true) 
+                              ? Colors.blue.withValues(alpha: 0.2) 
+                              : Colors.white.withValues(alpha: 0.05),
+                          borderRadius: BorderRadius.circular(10.r),
+                          border: Border.all(color: (_superAdminSmsConfig != null && _superAdminSmsConfig!['useCustomSmsApi'] == true) 
+                              ? Colors.blue.withValues(alpha: 0.3) 
+                              : Colors.white.withValues(alpha: 0.1)),
+                        ),
+                        child: Text(
+                          'API SETTINGS',
+                          style: TextStyle(
+                              color: (_superAdminSmsConfig != null && _superAdminSmsConfig!['useCustomSmsApi'] == true) 
+                                  ? Colors.blue.shade400 
+                                  : Colors.white, 
+                              fontSize: 9.sp, fontWeight: FontWeight.w900, letterSpacing: 1),
+                        ),
                       ),
-                      SizedBox(width: 4.w),
-                      const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white54, size: 8),
-                    ],
+                    ),
+                    SizedBox(width: 8.w),
+                  ],
+                  InkWell(
+                    onTap: () {
+                      _fetchGlobalSmsLogs();
+                      _showGlobalSmsModal();
+                    },
+                    child: Container(
+                      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.05),
+                        borderRadius: BorderRadius.circular(10.r),
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                      ),
+                      child: Row(
+                        children: [
+                          Text(
+                            'KAYDKA',
+                            style: TextStyle(color: Colors.white, fontSize: 9.sp, fontWeight: FontWeight.w900, letterSpacing: 1),
+                          ),
+                          SizedBox(width: 4.w),
+                          const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white54, size: 8),
+                        ],
+                      ),
+                    ),
                   ),
-                ),
+                ],
               ),
             ],
           ),

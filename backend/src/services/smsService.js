@@ -29,9 +29,10 @@ const sendSMS = async (phoneNumber, message, options = {}) => {
     let result = { success: false, messageId: null, error: null };
     
     try {
+        let school = null;
         // 1. Fetch school and check Super Admin permission (Optional if schoolId not provided)
         if (schoolId) {
-            const school = await prisma.school.findUnique({
+            school = await prisma.school.findUnique({
                 where: { id: schoolId },
                 include: { managedBy: true }
             });
@@ -55,11 +56,20 @@ const sendSMS = async (phoneNumber, message, options = {}) => {
         const getConf = (k) => configs.find(c => c.key === k)?.value;
 
         // Detect active provider
-        const activeProvider = getConf('sms_active_provider') || 'hormuud';
+        let activeProvider = getConf('sms_active_provider') || 'hormuud';
         
-        const GLOBAL_URL = getConf(`sms_gateway_url_${activeProvider}`) || getConf('sms_gateway_url');
-        const GLOBAL_KEY = getConf(`sms_api_key_${activeProvider}`) || getConf('sms_api_key');
-        const GLOBAL_SENDER = getConf(`sms_sender_id_${activeProvider}`) || getConf('sms_sender_id') || 'DugsiPro';
+        let GLOBAL_URL = getConf(`sms_gateway_url_${activeProvider}`) || getConf('sms_gateway_url');
+        let GLOBAL_KEY = getConf(`sms_api_key_${activeProvider}`) || getConf('sms_api_key');
+        let GLOBAL_SENDER = getConf(`sms_sender_id_${activeProvider}`) || getConf('sms_sender_id') || 'DugsiPro';
+
+        // Override with Super Admin Custom API if enabled
+        if (school && school.managedBy && school.managedBy.useCustomSmsApi) {
+            console.log(`[SMS] Using Custom API Override for Super Admin: ${school.managedBy.username}`);
+            activeProvider = school.managedBy.customSmsProvider || activeProvider;
+            GLOBAL_URL = school.managedBy.customSmsApiUrl || GLOBAL_URL;
+            GLOBAL_KEY = school.managedBy.customSmsApiKey || GLOBAL_KEY;
+            GLOBAL_SENDER = school.managedBy.customSmsSenderId || GLOBAL_SENDER;
+        }
 
         if (!GLOBAL_KEY || !GLOBAL_URL) {
             result.error = `Missing credentials for ${activeProvider}. Check SMS Gateway Config.`;

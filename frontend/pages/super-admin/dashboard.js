@@ -43,6 +43,11 @@ export default function SuperAdminDashboard() {
     const [adminSaving, setAdminSaving] = useState(false)
     const [adminSchoolId, setAdminSchoolId] = useState(null)
 
+    const [showApiSettings, setShowApiSettings] = useState(false)
+    const [apiForm, setApiForm] = useState({ customSmsApiKey: '', customSmsApiUrl: '', customSmsSenderId: '', customSmsProvider: 'hormuud', useCustomSmsApi: false })
+    const [apiSaving, setApiSaving] = useState(false)
+    const [superAdminSmsConfig, setSuperAdminSmsConfig] = useState(null)
+
     const [role, setRole] = useState('')
     const [isImpersonatingSuper, setIsImpersonatingSuper] = useState(false)
     const [impersonatedName, setImpersonatedName] = useState('')
@@ -66,6 +71,9 @@ export default function SuperAdminDashboard() {
 
         fetchSchools()
         fetchSmsNetworkStats()
+        if (r === 'super_admin') {
+            fetchSuperAdminApiSettings()
+        }
     }, [])
 
     useEffect(() => {
@@ -85,6 +93,38 @@ export default function SuperAdminDashboard() {
             console.error('Failed to fetch global stats', e)
         } finally {
             setGlobalLoading(false)
+        }
+    }
+
+    const fetchSuperAdminApiSettings = async () => {
+        try {
+            const res = await axios.get(`${API}/api/super-admin/sms-api`, { headers: headers() })
+            setSuperAdminSmsConfig(res.data)
+            setApiForm({
+                customSmsApiKey: res.data.customSmsApiKey || '',
+                customSmsApiUrl: res.data.customSmsApiUrl || '',
+                customSmsSenderId: res.data.customSmsSenderId || '',
+                customSmsProvider: res.data.customSmsProvider || 'hormuud',
+                useCustomSmsApi: !!res.data.useCustomSmsApi
+            })
+        } catch (e) {
+            console.error('Failed to fetch Super Admin API config', e)
+        }
+    }
+
+    const handleSaveApiSettings = async (e) => {
+        e.preventDefault()
+        setApiSaving(true)
+        setError('')
+        try {
+            await axios.put(`${API}/api/super-admin/sms-api`, apiForm, { headers: headers() })
+            setSuccess(t('settings_updated_success') || 'API Settings updated successfully')
+            setShowApiSettings(false)
+            fetchSuperAdminApiSettings()
+        } catch (e) {
+            setError(e.response?.data?.message || 'Error updating API settings')
+        } finally {
+            setApiSaving(false)
         }
     }
 
@@ -368,6 +408,11 @@ export default function SuperAdminDashboard() {
                                     <span className={`text-[10px] px-3 py-1 rounded-full font-black uppercase tracking-widest ${smsNetworkStats.isSmsEnabled ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}`}>
                                         {smsNetworkStats.isSmsEnabled ? t('system_online') : t('restricted')}
                                     </span>
+                                    {superAdminSmsConfig?.useCustomSmsApi && (
+                                        <span className="text-[10px] px-3 py-1 rounded-full font-black uppercase tracking-widest bg-blue-500/20 text-blue-400 border border-blue-500/30">
+                                            Custom API Active
+                                        </span>
+                                    )}
                                 </h3>
                                 <p className="text-slate-500 text-xs font-bold uppercase tracking-[0.2em] mt-2 flex items-center gap-2">
                                     <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span> {t('central_comm_infra')}
@@ -384,12 +429,26 @@ export default function SuperAdminDashboard() {
                                 <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.2em] mb-2">{t('all_time_payload')}</p>
                                 <p className="text-white text-4xl font-black tabular-nums tracking-tighter leading-none transition-all group-hover:text-violet-400">{(smsNetworkStats.totalAllTime || 0).toLocaleString()}</p>
                             </div>
-                            <button 
-                                onClick={() => setShowGlobalSmsModal(true)}
-                                className="bg-white/5 hover:bg-white text-slate-400 hover:text-slate-900 text-[11px] font-black uppercase tracking-widest px-8 py-5 rounded-[1.5rem] transition-all border border-white/5 hover:border-white shadow-xl hover:-translate-y-2 active:scale-95"
-                            >
-                                {t('open_analytics_archive')} ⏎
-                            </button>
+                            <div className="flex flex-col gap-2">
+                                <button 
+                                    onClick={() => setShowGlobalSmsModal(true)}
+                                    className="bg-white/5 hover:bg-white text-slate-400 hover:text-slate-900 text-[11px] font-black uppercase tracking-widest px-8 py-3.5 rounded-[1.5rem] transition-all border border-white/5 hover:border-white shadow-xl hover:-translate-y-1 active:scale-95"
+                                >
+                                    {t('open_analytics_archive')} ⏎
+                                </button>
+                                {role === 'super_admin' && (
+                                    <button 
+                                        onClick={() => setShowApiSettings(true)}
+                                        className={`text-[11px] font-black uppercase tracking-widest px-8 py-3.5 rounded-[1.5rem] transition-all border shadow-xl hover:-translate-y-1 active:scale-95 ${
+                                            superAdminSmsConfig?.useCustomSmsApi 
+                                                ? 'bg-blue-600/20 hover:bg-blue-600 text-blue-400 hover:text-white border-blue-500/30' 
+                                                : 'bg-white/5 hover:bg-white text-slate-400 hover:text-slate-900 border-white/5 hover:border-white'
+                                        }`}
+                                    >
+                                        ⚙️ API Settings
+                                    </button>
+                                )}
+                            </div>
                         </div>
                     </div>
                 )}
@@ -642,7 +701,7 @@ export default function SuperAdminDashboard() {
             </main>
 
             {/* Premium Modals */}
-            {(showAddSchool || showAddAdmin) && (
+            {(showAddSchool || showAddAdmin || showApiSettings) && (
                 <div className="fixed inset-0 z-[1000] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-300">
                     <div className="bg-white rounded-[3rem] shadow-2xl w-full max-w-[540px] overflow-hidden animate-in zoom-in-95 duration-500 border border-white/20">
                         {showAddSchool && (
@@ -731,6 +790,66 @@ export default function SuperAdminDashboard() {
                                     <button type="button" onClick={() => setShowAddAdmin(false)} className="flex-1 py-4 bg-slate-50 text-slate-400 font-black rounded-2xl text-[10px] uppercase tracking-widest hover:bg-slate-100 transition-all">{t('discard')}</button>
                                     <button type="submit" disabled={adminSaving} className="flex-[2] py-4 bg-slate-900 text-white font-black rounded-2xl text-[10px] uppercase tracking-widest hover:bg-black transition-all shadow-xl">
                                         {adminSaving ? t('provisioning') : t('confirm_access')}
+                                    </button>
+                                </div>
+                            </form>
+                        )}
+                        {showApiSettings && (
+                            <form onSubmit={handleSaveApiSettings}>
+                                <div className="bg-slate-900 p-10 text-white text-center">
+                                    <h2 className="text-2xl font-black tracking-tight uppercase mb-2">Custom SMS API</h2>
+                                    <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">Override Global SMS Gateway Settings</p>
+                                </div>
+                                <div className="p-10 space-y-5">
+                                    <div className="flex items-center gap-4 bg-blue-50 p-4 rounded-2xl border border-blue-100">
+                                        <div className="flex-1">
+                                            <h4 className="text-sm font-black text-blue-900 mb-1">Enable Custom API</h4>
+                                            <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">Bypass System Owner API</p>
+                                        </div>
+                                        <button 
+                                            type="button" 
+                                            onClick={() => setApiForm(f => ({ ...f, useCustomSmsApi: !f.useCustomSmsApi }))}
+                                            className={`relative inline-flex h-8 w-14 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${apiForm.useCustomSmsApi ? 'bg-blue-600' : 'bg-slate-300'}`}
+                                        >
+                                            <span className={`pointer-events-none inline-block h-7 w-7 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${apiForm.useCustomSmsApi ? 'translate-x-6' : 'translate-x-0'}`} />
+                                        </button>
+                                    </div>
+                                    
+                                    <div>
+                                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] mb-2 ml-1">Gateway Provider</label>
+                                        <select
+                                            value={apiForm.customSmsProvider}
+                                            onChange={e => setApiForm(f => ({ ...f, customSmsProvider: e.target.value }))}
+                                            disabled={!apiForm.useCustomSmsApi}
+                                            className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-5 py-4 text-sm font-bold focus:border-blue-500 focus:bg-white transition-all outline-none"
+                                        >
+                                            <option value="hormuud">Hormuud Telecom</option>
+                                            <option value="golis">Golis Telecom</option>
+                                        </select>
+                                    </div>
+                                    {[
+                                        { key: 'customSmsApiUrl', label: 'Gateway URL', placeholder: 'https://...', required: apiForm.useCustomSmsApi },
+                                        { key: 'customSmsApiKey', label: 'API Key / Token', placeholder: 'Token or Key', required: apiForm.useCustomSmsApi },
+                                        { key: 'customSmsSenderId', label: 'Sender ID', placeholder: 'e.g. DugsiPro', required: false },
+                                    ].map(field => (
+                                        <div key={field.key}>
+                                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] mb-2 ml-1">{field.label}</label>
+                                            <input
+                                                type={field.type || 'text'}
+                                                placeholder={field.placeholder}
+                                                required={field.required}
+                                                disabled={!apiForm.useCustomSmsApi}
+                                                value={apiForm[field.key] || ''}
+                                                onChange={e => setApiForm(f => ({ ...f, [field.key]: e.target.value }))}
+                                                className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-5 py-4 text-sm font-bold focus:border-blue-500 focus:bg-white transition-all outline-none disabled:opacity-50"
+                                            />
+                                        </div>
+                                    ))}
+                                </div>
+                                <div className="p-10 pt-0 flex gap-4">
+                                    <button type="button" onClick={() => setShowApiSettings(false)} className="flex-1 py-4 bg-slate-50 text-slate-400 font-black rounded-2xl text-[10px] uppercase tracking-widest hover:bg-slate-100 transition-all">{t('discard')}</button>
+                                    <button type="submit" disabled={apiSaving} className="flex-[2] py-4 bg-blue-600 text-white font-black rounded-2xl text-[10px] uppercase tracking-widest hover:bg-blue-700 transition-all shadow-xl hover:shadow-blue-500/20">
+                                        {apiSaving ? 'SAVING...' : 'SAVE SETTINGS'}
                                     </button>
                                 </div>
                             </form>

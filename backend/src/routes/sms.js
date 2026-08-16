@@ -324,6 +324,24 @@ router.get('/bulk-send-count', authenticateToken, authorizeRoles('admin', 'owner
         const currentYear = now.getFullYear();
         const MONTHLY_LIMIT = 2;
 
+        const school = await prisma.school.findUnique({
+            where: { id: schoolId },
+            include: { managedBy: true }
+        });
+        const isCustomApiEnabled = school?.managedBy?.useCustomSmsApi === true;
+
+        if (isCustomApiEnabled) {
+            return res.json({
+                count: 0,
+                limit: 999999,
+                remaining: 999999,
+                isLimitReached: false,
+                isCustomApi: true,
+                month: currentMonth,
+                year: currentYear
+            });
+        }
+
         const count = await prisma.smsLog.count({
             where: {
                 schoolId,
@@ -384,30 +402,38 @@ router.post('/bulk-parents', authenticateToken, authorizeRoles('admin', 'owner',
             return res.status(400).json({ message: 'classId and message are required' });
         }
 
-        // ==================== MONTHLY BULK SEND LIMIT CHECK ====================
-        const MONTHLY_LIMIT = 2;
-        const now = new Date();
-        const currentMonth = now.getMonth() + 1;
-        const currentYear = now.getFullYear();
-
-        const bulkSendCount = await prisma.smsLog.count({
-            where: {
-                schoolId,
-                type: 'bulk_send_event',
-                month: currentMonth,
-                year: currentYear
-            }
+        const school = await prisma.school.findUnique({
+            where: { id: schoolId },
+            include: { managedBy: true }
         });
+        const isCustomApiEnabled = school?.managedBy?.useCustomSmsApi === true;
 
-        if (bulkSendCount >= MONTHLY_LIMIT) {
-            return res.status(429).json({
-                message: `Xaddidaadka bishii waa la gaadhy! Waxaad diri kartaa oo keliya ${MONTHLY_LIMIT} fariin oo Bulk ah bil kasta. Bisha soo socota ayaad dib u diri kartaa.`,
-                limitReached: true,
-                count: bulkSendCount,
-                limit: MONTHLY_LIMIT
+        if (!isCustomApiEnabled) {
+            // ==================== MONTHLY BULK SEND LIMIT CHECK ====================
+            const MONTHLY_LIMIT = 2;
+            const now = new Date();
+            const currentMonth = now.getMonth() + 1;
+            const currentYear = now.getFullYear();
+
+            const bulkSendCount = await prisma.smsLog.count({
+                where: {
+                    schoolId,
+                    type: 'bulk_send_event',
+                    month: currentMonth,
+                    year: currentYear
+                }
             });
+
+            if (bulkSendCount >= MONTHLY_LIMIT) {
+                return res.status(429).json({
+                    message: `Xaddidaadka bishii waa la gaadhy! Waxaad diri kartaa oo keliya ${MONTHLY_LIMIT} fariin oo Bulk ah bil kasta. Bisha soo socota ayaad dib u diri kartaa.`,
+                    limitReached: true,
+                    count: bulkSendCount,
+                    limit: MONTHLY_LIMIT
+                });
+            }
+            // ======================================================================
         }
-        // ======================================================================
 
         // School name prefix removed to keep message within 1 SMS credit limit
         const fullMessage = message;

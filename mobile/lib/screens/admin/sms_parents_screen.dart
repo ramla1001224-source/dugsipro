@@ -31,6 +31,7 @@ class _SmsParentsScreenState extends State<SmsParentsScreen> {
   int _bulkSendLimit = 2;
   int _bulkSendRemaining = 2;
   bool _isLimitReached = false;
+  bool _isCustomApi = false;
 
   @override
   void initState() {
@@ -49,6 +50,7 @@ class _SmsParentsScreenState extends State<SmsParentsScreen> {
           _bulkSendLimit = (data['limit'] ?? 2) as int;
           _bulkSendRemaining = (data['remaining'] ?? 2) as int;
           _isLimitReached = (data['isLimitReached'] ?? false) as bool;
+          _isCustomApi = (data['isCustomApi'] ?? false) as bool;
         });
       }
     } catch (_) {
@@ -208,6 +210,8 @@ class _SmsParentsScreenState extends State<SmsParentsScreen> {
 
   /// Small badge shown in AppBar: e.g. "0/2" green, "1/2" amber, "2/2🔒" red
   Widget _buildLimitBadge() {
+    if (_isCustomApi) return const SizedBox.shrink();
+
     final Color bgColor = _isLimitReached
         ? Colors.red.shade700
         : _bulkSendCount >= 1
@@ -274,7 +278,7 @@ class _SmsParentsScreenState extends State<SmsParentsScreen> {
         ),
         SizedBox(height: 16.h),
         // Full-width limit info card
-        _buildLimitInfoCard(),
+        if (!_isCustomApi) _buildLimitInfoCard(),
       ],
     );
   }

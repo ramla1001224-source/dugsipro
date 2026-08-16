@@ -113,19 +113,21 @@ export default function SMSParents() {
                         <p className="text-gray-400 text-sm font-bold uppercase tracking-widest mt-1">U dir fariimo wadar ah waalidiinta adoo isticmaalaya Golis SMS</p>
                     </div>
                     {/* Monthly Limit Badge */}
-                    <div className={`flex flex-col items-center px-5 py-3 rounded-2xl border-2 font-black text-sm ${
-                        bulkSendInfo.isLimitReached
-                            ? 'bg-red-50 border-red-200 text-red-600'
-                            : bulkSendInfo.count >= 1
-                            ? 'bg-amber-50 border-amber-200 text-amber-700'
-                            : 'bg-emerald-50 border-emerald-200 text-emerald-700'
-                    }`}>
-                        <span className="text-[10px] uppercase tracking-widest font-black opacity-70">Fariimo Bishii</span>
-                        <span className="text-2xl leading-tight">{bulkSendInfo.count} <span className="text-base opacity-50">/ {bulkSendInfo.limit}</span></span>
-                        <span className="text-[10px] uppercase tracking-widest">
-                            {bulkSendInfo.isLimitReached ? '🔒 Xad la gaadhy' : `${bulkSendInfo.remaining} baqi`}
-                        </span>
-                    </div>
+                    {!bulkSendInfo.isCustomApi && (
+                        <div className={`flex flex-col items-center px-5 py-3 rounded-2xl border-2 font-black text-sm ${
+                            bulkSendInfo.isLimitReached
+                                ? 'bg-red-50 border-red-200 text-red-600'
+                                : bulkSendInfo.count >= 1
+                                ? 'bg-amber-50 border-amber-200 text-amber-700'
+                                : 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                        }`}>
+                            <span className="text-[10px] uppercase tracking-widest font-black opacity-70">Fariimo Bishii</span>
+                            <span className="text-2xl leading-tight">{bulkSendInfo.count} <span className="text-base opacity-50">/ {bulkSendInfo.limit}</span></span>
+                            <span className="text-[10px] uppercase tracking-widest">
+                                {bulkSendInfo.isLimitReached ? '🔒 Xad la gaadhy' : `${bulkSendInfo.remaining} baqi`}
+                            </span>
+                        </div>
+                    )}
                 </div>
 
                 <div className="bg-white rounded-[3rem] shadow-xl shadow-slate-100 border border-slate-50 overflow-hidden">
