@@ -161,6 +161,7 @@ const sendSMS = async (phoneNumber, message, options = {}) => {
                 phoneNumber,
                 message,
                 type: type || 'general',
+                errorMessage: success ? null : (result.error ? result.error.substring(0, 1000) : 'Unknown failure'),
                 month: new Date().getMonth() + 1,
                 year: new Date().getFullYear(),
                 status: success ? 'sent' : 'failed'

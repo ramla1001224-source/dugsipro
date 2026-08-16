@@ -865,6 +865,7 @@ model SmsLog {
   message     String
   status      String   @default("sent")
   type        String? // attendance, exam, etc.
+  errorMessage String? @db.Text
   month       Int
   year        Int
   created_at  DateTime @default(now())

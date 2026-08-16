@@ -924,6 +924,11 @@ export default function SuperAdminDashboard() {
                                                     </span>
                                                 </div>
                                                 <p className="text-[12px] font-medium text-slate-700 leading-snug">{log.message}</p>
+                                                {log.errorMessage && log.status === 'failed' && (
+                                                    <div className="mt-2 text-[10px] font-bold text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">
+                                                        ⚠️ {log.errorMessage}
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                     ))}
