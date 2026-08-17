@@ -140,8 +140,9 @@ export default function Login() {
             window.location.href = dashboards[role] || '/student/dashboard'
         } catch (err) {
             setError(getErrorMessage(err, t))
-            if (err.response?.data?.lockedUntil) {
-                setLockedUntil(err.response.data.lockedUntil)
+            if (err.response?.data?.lockRemainingMs) {
+                const absoluteLockTime = new Date(Date.now() + err.response.data.lockRemainingMs).toISOString()
+                setLockedUntil(absoluteLockTime)
             }
         } finally { setLoading(false) }
     }

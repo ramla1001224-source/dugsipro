@@ -227,8 +227,10 @@ class _LoginScreenState extends State<LoginScreen>
           final data = e.response!.data;
           if (data is Map && data['message'] != null) {
             msg = data['message'];
-            if (data['lockedUntil'] != null) {
-              _startCountdown(data['lockedUntil']);
+            if (data['lockRemainingMs'] != null) {
+              final ms = data['lockRemainingMs'] as int;
+              final absoluteTime = DateTime.now().add(Duration(milliseconds: ms)).toIso8601String();
+              _startCountdown(absoluteTime);
             }
           }
         } else if (rawError.contains('401')) {
@@ -295,8 +297,10 @@ class _LoginScreenState extends State<LoginScreen>
         final data = e.response!.data;
         if (data is Map && data['message'] != null) {
           msg = data['message'];
-          if (data['lockedUntil'] != null) {
-            _startCountdown(data['lockedUntil']);
+          if (data['lockRemainingMs'] != null) {
+            final ms = data['lockRemainingMs'] as int;
+            final absoluteTime = DateTime.now().add(Duration(milliseconds: ms)).toIso8601String();
+            _startCountdown(absoluteTime);
           }
         }
       } else if (e.toString().contains('401')) {
