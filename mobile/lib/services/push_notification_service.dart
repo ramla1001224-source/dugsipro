@@ -142,10 +142,13 @@ class PushNotificationService {
       return;
     }
 
+    final String safeTitle = title ?? 'Dugsi Pro';
+    final String safeBody  = body ?? '';
+
     _localNotifications.show(
       message.hashCode,
-      title ?? 'Dugsi Pro Notification',
-      body ?? '',
+      safeTitle,
+      safeBody,
       NotificationDetails(
         android: AndroidNotificationDetails(
           _channel.id,
@@ -156,7 +159,15 @@ class PushNotificationService {
           priority: Priority.max,
           playSound: true,
           enableVibration: true,
-          styleInformation: BigTextStyleInformation(body ?? ''),
+          // BigTextStyle — shows the full long message in the Android notification shade
+          // instead of truncating it to one line.
+          styleInformation: BigTextStyleInformation(
+            safeBody,
+            contentTitle: safeTitle,
+            summaryText: 'DugsiPro',
+            htmlFormatContent: false,
+            htmlFormatContentTitle: false,
+          ),
         ),
         iOS: const DarwinNotificationDetails(
           presentAlert: true,

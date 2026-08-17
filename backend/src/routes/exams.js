@@ -7,6 +7,7 @@ const { createNotification, createOrUpdateNotification } = require('../utils/not
 const responseHelper = require('../utils/responseHelper');
 const { sendPushNotification } = require('../services/notificationService');
 const { enqueueBulkSMS } = require('../services/smsQueue');
+const { checkIfSchoolUsesCustomApi } = require('../services/smsService');
 const multer = require('multer');
 const xlsx = require('xlsx');
 
@@ -2172,6 +2173,10 @@ router.post('/send-bulk-sms', authenticateToken, authorizeRoles('admin', 'super_
         // const instPrefixBulk = (schoolData?.institutionType || 'school').toLowerCase() === 'machad' ? 'Machad' : 'School';
         // schoolDisplayName = `${instPrefixBulk}: ${schoolDisplayName}`;
 
+        // If school uses a custom SMS API, never prefix school name (they own the sender ID)
+        const usingCustomApi = await checkIfSchoolUsesCustomApi(schoolId);
+        const effectiveIncludeSchoolName = usingCustomApi ? false : includeSchoolName;
+
         // 3. Group results by Student
         const studentMap = new Map();
 
@@ -2290,7 +2295,7 @@ router.post('/send-bulk-sms', authenticateToken, authorizeRoles('admin', 'super_
                     }
                 }
 
-                if (includeSchoolName) {
+                if (effectiveIncludeSchoolName) {
                     message = `${schoolDisplayName}: ${message}`;
                 }
 

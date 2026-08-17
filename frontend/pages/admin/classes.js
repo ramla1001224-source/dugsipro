@@ -10,7 +10,7 @@ export default function AdminClasses() {
     const [showModal, setShowModal] = useState(false)
     const [formData, setFormData] = useState({
         class_name: '',
-        sections: [{ name: 'A', teacherId: '', shift: 'morning' }]
+        sections: [{ name: 'A', teacherId: '', shifts: ['morning'] }]
     })
     const [submitting, setSubmitting] = useState(false)
     const [expandedClass, setExpandedClass] = useState(null)
@@ -18,8 +18,27 @@ export default function AdminClasses() {
 
     // Section edit state
     const [editingSection, setEditingSection] = useState(null)
-    const [editSectionData, setEditSectionData] = useState({ name: '', teacherId: '', shift: 'morning' })
+    const [editSectionData, setEditSectionData] = useState({ name: '', teacherId: '', shifts: ['morning'] })
     const [editSubmitting, setEditSubmitting] = useState(false)
+
+    // Multi-shift helpers
+    const ALL_SHIFTS = [
+        { value: 'morning',   label: 'Subax (Morning)',   emoji: '🌅', color: 'emerald' },
+        { value: 'afternoon', label: 'Galab (Afternoon)', emoji: '🌇', color: 'orange'  },
+        { value: 'night',     label: 'Habeen (Night)',    emoji: '🌙', color: 'indigo'  },
+    ]
+
+    // Parse a shift field (could be CSV string or array) into an array
+    const parseShifts = (shift) => {
+        if (!shift) return ['morning']
+        if (Array.isArray(shift)) return shift
+        return shift.split(',').map(s => s.trim()).filter(Boolean)
+    }
+
+    const shiftBadgeColor = (sh) => sh === 'afternoon' ? 'bg-orange-100 text-orange-600' : sh === 'night' ? 'bg-indigo-100 text-indigo-600' : 'bg-emerald-100 text-emerald-600'
+
+    const toggleShiftInArray = (arr, value) =>
+        arr.includes(value) ? arr.filter(s => s !== value) : [...arr, value]
 
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4001'
     const getToken = () => localStorage.getItem('token')
@@ -39,11 +58,13 @@ export default function AdminClasses() {
 
     useEffect(() => { fetchData() }, [])
 
-    // Filter classes and their sections based on selected shift
+    // Filter classes and their sections based on selected shift (supports CSV shifts)
     const filteredClasses = classes.map(cls => {
-        const filteredSections = (cls.Sections || []).filter(sec => 
-            selectedShift === 'all' || sec.shift === selectedShift
-        )
+        const filteredSections = (cls.Sections || []).filter(sec => {
+            if (selectedShift === 'all') return true
+            const sectionShifts = parseShifts(sec.shift)
+            return sectionShifts.includes(selectedShift)
+        })
         return { ...cls, Sections: filteredSections }
     }).filter(cls => cls.Sections.length > 0 || selectedShift === 'all')
 
@@ -51,7 +72,7 @@ export default function AdminClasses() {
     const addSectionRow = () => {
         setFormData(prev => ({
             ...prev,
-            sections: [...prev.sections, { name: '', teacherId: '', shift: 'morning' }]
+            sections: [...prev.sections, { name: '', teacherId: '', shifts: ['morning'] }]
         }))
     }
 
@@ -75,11 +96,19 @@ export default function AdminClasses() {
         if (submitting) return
         setSubmitting(true)
         try {
-            await axios.post(`${apiUrl}/api/classes/create`, formData, {
+            // Convert shifts array → CSV string before sending to backend
+            const payload = {
+                ...formData,
+                sections: formData.sections.map(s => ({
+                    ...s,
+                    shift: (s.shifts || ['morning']).join(',')
+                }))
+            }
+            await axios.post(`${apiUrl}/api/classes/create`, payload, {
                 headers: { Authorization: `Bearer ${getToken()}` }
             })
             setShowModal(false)
-            setFormData({ class_name: '', sections: [{ name: 'A', teacherId: '', shift: 'morning' }] })
+            setFormData({ class_name: '', sections: [{ name: 'A', teacherId: '', shifts: ['morning'] }] })
             fetchData()
         } catch (e) { alert(e.response?.data?.message || 'Error creating class') }
         finally { setSubmitting(false) }
@@ -107,7 +136,11 @@ export default function AdminClasses() {
 
     const openEditSection = (section) => {
         setEditingSection(section)
-        setEditSectionData({ name: section.name || '', teacherId: section.teacherId || '', shift: section.shift || 'morning' })
+        setEditSectionData({
+            name: section.name || '',
+            teacherId: section.teacherId || '',
+            shifts: parseShifts(section.shift)
+        })
     }
 
     const handleEditSection = async (e) => {
@@ -115,7 +148,11 @@ export default function AdminClasses() {
         if (editSubmitting) return
         setEditSubmitting(true)
         try {
-            await axios.put(`${apiUrl}/api/classes/section/${editingSection.id}`, editSectionData, {
+            const payload = {
+                ...editSectionData,
+                shift: (editSectionData.shifts || ['morning']).join(',')
+            }
+            await axios.put(`${apiUrl}/api/classes/section/${editingSection.id}`, payload, {
                 headers: { Authorization: `Bearer ${getToken()}` }
             })
             setEditingSection(null)
@@ -189,7 +226,6 @@ export default function AdminClasses() {
                                     </div>
                                 </div>
 
-                                {/* Sections Panel */}
                                 {expandedClass === cls.id && (
                                     <div className="border-t border-gray-50 p-5">
                                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -198,13 +234,13 @@ export default function AdminClasses() {
                                                     <div className="flex justify-between items-start mb-2">
                                                         <div>
                                                             <span className="text-sm font-black text-slate-700">Section {sec.name || 'General'}</span>
-                                                            <span className={`ml-2 text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${
-                                                                sec.shift === 'afternoon' ? 'bg-orange-100 text-orange-600' :
-                                                                sec.shift === 'night' ? 'bg-indigo-100 text-indigo-600' :
-                                                                'bg-emerald-100 text-emerald-600'
-                                                            }`}>
-                                                                {sec.shift || 'morning'}
-                                                            </span>
+                                                            <div className="flex flex-wrap gap-1 mt-1">
+                                                                {parseShifts(sec.shift).map(sh => (
+                                                                    <span key={sh} className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${shiftBadgeColor(sh)}`}>
+                                                                        {sh === 'morning' ? '🌅 Subax' : sh === 'afternoon' ? '🌇 Galab' : '🌙 Habeen'}
+                                                                    </span>
+                                                                ))}
+                                                            </div>
                                                         </div>
                                                         <div className="flex gap-1">
                                                             <button onClick={() => openEditSection(sec)} className="text-indigo-400 hover:text-indigo-600 text-xs px-2 py-1 rounded-lg hover:bg-indigo-50">✎</button>
@@ -219,7 +255,6 @@ export default function AdminClasses() {
                                                     </p>
                                                 </div>
                                             ))}
-                                            {/* Add section button */}
                                             <button
                                                 className="border-2 border-dashed border-slate-200 rounded-2xl p-4 text-slate-400 hover:border-indigo-300 hover:text-indigo-500 transition-all font-bold text-sm"
                                                 onClick={() => {
@@ -282,15 +317,26 @@ export default function AdminClasses() {
                                                     value={sec.name}
                                                     onChange={e => updateSection(idx, 'name', e.target.value)}
                                                 />
-                                                <select
-                                                    className="p-2 rounded-lg border text-sm bg-white outline-none"
-                                                    value={sec.shift}
-                                                    onChange={e => updateSection(idx, 'shift', e.target.value)}
-                                                >
-                                                    <option value="morning">Morning (Subax)</option>
-                                                    <option value="afternoon">Afternoon (Galab)</option>
-                                                    <option value="night">Night (Habeen) 🌙</option>
-                                                </select>
+                                                <div className="flex gap-2">
+                                                    {ALL_SHIFTS.map(sh => (
+                                                        <label key={sh.value} className={`flex items-center gap-1 px-2 py-1 rounded-lg border cursor-pointer text-xs font-bold transition-all ${
+                                                            (sec.shifts || []).includes(sh.value)
+                                                                ? 'border-indigo-400 bg-indigo-50 text-indigo-700'
+                                                                : 'border-gray-200 text-gray-400 hover:border-indigo-200'
+                                                        }`}>
+                                                            <input
+                                                                type="checkbox"
+                                                                className="hidden"
+                                                                checked={(sec.shifts || []).includes(sh.value)}
+                                                                onChange={() => {
+                                                                    const next = toggleShiftInArray(sec.shifts || [], sh.value)
+                                                                    if (next.length > 0) updateSection(idx, 'shifts', next)
+                                                                }}
+                                                            />
+                                                            {sh.emoji} {sh.value === 'morning' ? 'Subax' : sh.value === 'afternoon' ? 'Galab' : 'Habeen'}
+                                                        </label>
+                                                    ))}
+                                                </div>
                                                 {formData.sections.length > 1 && (
                                                     <button type="button" onClick={() => removeSectionRow(idx)} className="text-red-400 hover:text-red-600 font-bold">✕</button>
                                                 )}
@@ -349,16 +395,33 @@ export default function AdminClasses() {
                                 />
                             </div>
                             <div>
-                                <label className="text-xs font-bold text-gray-400 uppercase mb-1 block">Shift</label>
-                                <select
-                                    className="w-full p-3 rounded-xl border bg-white outline-none font-bold text-slate-700"
-                                    value={editSectionData.shift}
-                                    onChange={e => setEditSectionData({ ...editSectionData, shift: e.target.value })}
-                                >
-                                    <option value="morning">Morning (Subax)</option>
-                                    <option value="afternoon">Afternoon (Galab)</option>
-                                    <option value="night">Night (Habeen) 🌙</option>
-                                </select>
+                                <label className="text-xs font-bold text-gray-400 uppercase mb-1 block">Shifts (Dooro mid ama in kabadan)</label>
+                                <div className="flex flex-wrap gap-2">
+                                    {ALL_SHIFTS.map(sh => {
+                                        const active = (editSectionData.shifts || []).includes(sh.value)
+                                        return (
+                                            <label key={sh.value} className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 cursor-pointer font-bold text-sm transition-all select-none ${
+                                                active ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : 'border-gray-200 text-gray-400 hover:border-indigo-200 hover:bg-indigo-50/30'
+                                            }`}>
+                                                <input
+                                                    type="checkbox"
+                                                    className="hidden"
+                                                    checked={active}
+                                                    onChange={() => {
+                                                        const next = toggleShiftInArray(editSectionData.shifts || [], sh.value)
+                                                        if (next.length > 0) setEditSectionData({ ...editSectionData, shifts: next })
+                                                    }}
+                                                />
+                                                <span className="text-base">{sh.emoji}</span>
+                                                <span>{sh.label}</span>
+                                                {active && <span className="text-indigo-500">✓</span>}
+                                            </label>
+                                        )
+                                    })}
+                                </div>
+                                {(editSectionData.shifts || []).length === 0 && (
+                                    <p className="text-xs text-red-400 mt-1">Dooro hal shift ugu yaraan</p>
+                                )}
                             </div>
                             <div>
                                 <label className="text-xs font-bold text-gray-400 uppercase mb-1 block">Teacher</label>

@@ -6,6 +6,7 @@ const cacheMiddleware = require('../middleware/cacheMiddleware');
 const { enqueueBulkSMS } = require('../services/smsQueue');
 const { sendPushNotification } = require('../services/notificationService');
 const { createNotification } = require('../utils/notificationHelper');
+const { checkIfSchoolUsesCustomApi } = require('../services/smsService');
 
 
 router.get('/', authenticateToken, async (req, res) => {
@@ -378,6 +379,9 @@ router.post('/', authenticateToken, authorizeRoles('admin', 'teacher', 'accounta
 
           const adminPhone = schoolAdmin?.phone || schoolInfo?.phone || '';
 
+          // Check if this school uses a custom SMS API — if so, don't prefix the school name
+          const usingCustomApi = await checkIfSchoolUsesCustomApi(schoolId);
+
           const now = new Date();
           const day = now.getDate();
           const month = now.getMonth() + 1;
@@ -434,11 +438,19 @@ router.post('/', authenticateToken, authorizeRoles('admin', 'teacher', 'accounta
             const parentPhone = parent?.user?.phone || parent?.phone || studentInfo?.parentPhone;
             const studentName = studentInfo?.user?.name || 'Ardayga';
 
+            // ── Unified parent message (same text across SMS, Push, In-App) ──
+            // Custom API schools skip the school name prefix (sender ID already identifies them).
+            const parentMsg = usingCustomApi
+              ? `Waalid ${studentName} ${timeLabel} ${instLabel} ma imaan ${sessionSomali} ${somaliDateStr} fadlan la xiriir maamulaha ${adminPhone}`
+              : `${schoolDisplayName}: Waalid ${studentName} ${timeLabel} ${instLabel} ma imaan ${sessionSomali} ${somaliDateStr} fadlan la xiriir maamulaha ${adminPhone}`;
+            const pushTitle = schoolDisplayName || 'Maqnaansho Arday';
+            // ─────────────────────────────────────────────────────────────────
+
+            // 1. SMS
             if (parentPhone) {
-              const msg = `${schoolDisplayName}: Waalid ${studentName} ${timeLabel} ${instLabel} ma imaan ${sessionSomali} ${somaliDateStr} fadlan la xiriir maamulaha ${adminPhone}`;
               smsJobs.push({
                 phone: parentPhone,
-                message: msg,
+                message: parentMsg,
                 schoolId,
                 studentId: studentInfo.id,
                 type: 'attendance',
@@ -446,26 +458,22 @@ router.post('/', authenticateToken, authorizeRoles('admin', 'teacher', 'accounta
               });
             }
 
-            // Push notification (fire-and-forget per student)
+            // 2. Push notification (Firebase) - same message as SMS
             if (parent?.user?.fcmToken) {
-              const title = 'Maqnaansho Arday';
-              const body = `Ogeysiis: ${studentName} ${timeLabel} ${instLabel} ma soo xaadirin ${sessionSomali} ${somaliDateStr}.`;
               console.log(`[AttendanceNotification] Sending push to parent: ${parent.user.name}, Token: ${parent.user.fcmToken.substring(0, 10)}...`);
-              sendPushNotification([parent.user.fcmToken], title, body, { type: 'attendance', studentId: studentInfo.id })
+              sendPushNotification([parent.user.fcmToken], pushTitle, parentMsg, { type: 'attendance', studentId: studentInfo.id })
                 .then(() => console.log(`[AttendanceNotification] Push success for ${studentName}`))
                 .catch(err => console.error(`[Push Attendance] Failed for ${studentName}:`, err));
             } else {
               console.warn(`[AttendanceNotification] No FCM token for parent of: ${studentName}. Parent User ID: ${parent?.userId}`);
             }
 
-            // In-app DB notification
+            // 3. In-app DB notification - same message as SMS
             if (parent?.userId) {
-              const title = 'Maqnaansho Arday';
-              const body = `Ogeysiis: ${studentName} ${timeLabel} ${instLabel} ma soo xaadirin ${sessionSomali} ${somaliDateStr}.`;
               createNotification({
                 userId: parent.userId,
-                title,
-                message: body,
+                title: pushTitle,
+                message: parentMsg,
                 type: 'ATTENDANCE'
               }).catch(err => console.error(`[DB Notification] Failed for ${studentName}:`, err));
             }

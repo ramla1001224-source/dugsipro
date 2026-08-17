@@ -164,6 +164,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     final String message = n['message'] ?? '';
     final String dateStr = n['created_at']?.toString() ?? '';
 
+    // Attendance cards get a warm amber accent to stand out
+    final bool isAttendance = (n['type']?.toString().toUpperCase() == 'ATTENDANCE');
+    final Color accentColor = isAttendance
+        ? const Color(0xFFF59E0B)   // amber for attendance
+        : const Color(0xFF2563EB);  // blue for others
+
     return InkWell(
       borderRadius: BorderRadius.circular(16.r),
       onTap: () {
@@ -178,19 +184,19 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         padding: EdgeInsets.all(16.w),
         decoration: BoxDecoration(
           color: isUnread
-              ? const Color(0xFF2563EB).withValues(alpha: 0.05)
+              ? accentColor.withValues(alpha: 0.05)
               : Colors.white,
           borderRadius: BorderRadius.circular(16.r),
           border: Border.all(
             color: isUnread
-                ? const Color(0xFF2563EB).withValues(alpha: 0.25)
+                ? accentColor.withValues(alpha: 0.25)
                 : const Color(0xFFE2E8F0),
             width: isUnread ? 1.5 : 1,
           ),
           boxShadow: isUnread
               ? [
                   BoxShadow(
-                    color: const Color(0xFF2563EB).withValues(alpha: 0.06),
+                    color: accentColor.withValues(alpha: 0.06),
                     blurRadius: 8.r,
                     offset: const Offset(0, 2),
                   )
@@ -205,7 +211,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               padding: EdgeInsets.all(10.w),
               decoration: BoxDecoration(
                 color: isUnread
-                    ? const Color(0xFF2563EB).withValues(alpha: 0.1)
+                    ? accentColor.withValues(alpha: 0.1)
                     : const Color(0xFFF1F5F9),
                 shape: BoxShape.circle,
               ),
@@ -213,7 +219,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 _getIconForType(n['type']),
                 size: 20,
                 color: isUnread
-                    ? const Color(0xFF2563EB)
+                    ? accentColor
                     : AppTheme.textSecondary,
               ),
             ),
@@ -255,12 +261,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     SizedBox(height: 4.h),
                     Text(
                       message,
-                      maxLines: 2,
+                      maxLines: 3,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: 13.sp,
                         color: isUnread
-                            ? AppTheme.textPrimary.withValues(alpha: 0.75)
+                            ? AppTheme.textPrimary.withValues(alpha: 0.80)
                             : AppTheme.textSecondary,
                         height: 1.4.h,
                       ),
@@ -291,7 +297,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                             horizontal: 8.w, vertical: 2.h),
                         decoration: BoxDecoration(
                           color: isUnread
-                              ? const Color(0xFF2563EB).withValues(alpha: 0.1)
+                              ? accentColor.withValues(alpha: 0.1)
                               : const Color(0xFFF1F5F9),
                           borderRadius: BorderRadius.circular(20.r),
                         ),
@@ -301,7 +307,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                             fontSize: 10.sp,
                             fontWeight: FontWeight.w700,
                             color: isUnread
-                                ? const Color(0xFF2563EB)
+                                ? accentColor
                                 : AppTheme.textSecondary,
                           ),
                         ),

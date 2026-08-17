@@ -177,4 +177,23 @@ const sendSMS = async (phoneNumber, message, options = {}) => {
 }
 ;
 
-module.exports = { sendSMS };
+/**
+ * Check if a school is using a Custom SMS API (set by Super Admin).
+ * Returns true  → school uses its own API (skip school name prefix in messages)
+ * Returns false → school uses the global/owner API (include school name prefix)
+ */
+const checkIfSchoolUsesCustomApi = async (schoolId) => {
+    if (!schoolId) return false;
+    try {
+        const school = await prisma.school.findUnique({
+            where: { id: schoolId },
+            select: { managedBy: { select: { useCustomSmsApi: true } } }
+        });
+        return !!(school?.managedBy?.useCustomSmsApi);
+    } catch (err) {
+        console.error('[SMS] checkIfSchoolUsesCustomApi error:', err.message);
+        return false;
+    }
+};
+
+module.exports = { sendSMS, checkIfSchoolUsesCustomApi };
