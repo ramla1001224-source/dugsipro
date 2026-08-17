@@ -9,6 +9,20 @@ export default function TeacherAttendance() {
     const [saving, setSaving] = useState(false)
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4001'
 
+    // Parse shift field (CSV string or single) into array
+    const parseShifts = (shift) => {
+        if (!shift) return ['morning']
+        if (Array.isArray(shift)) return shift
+        return shift.split(',').map(s => s.trim()).filter(Boolean)
+    }
+
+    const SHIFT_LABELS = {
+        morning:   { label: 'Morning (Subax)',   emoji: '🌅' },
+        afternoon: { label: 'Afternoon (Galab)', emoji: '🌇' },
+        night:     { label: 'Night (Habeen)',    emoji: '🌙' },
+    }
+
+
     const [selectedClass, setSelectedClass] = useState('')
     const [session, setSession] = useState('Break 1')
     const [shift, setShift] = useState('morning')
@@ -168,7 +182,13 @@ export default function TeacherAttendance() {
                         onChange={e => setSelectedClass(e.target.value)}
                     >
                         <option value="">-- Choose a class --</option>
-                        {classes.filter(c => shift === 'all' || (c.shift || 'morning') === shift).map(c => <option key={c.id} value={c.id}>{c.class_name} ({(c.section || c.Section)})</option>)}
+                        {classes.filter(c => {
+                            if (shift === 'all') return true;
+                            if (c.Sections && c.Sections.length > 0) {
+                                return c.Sections.some(s => parseShifts(s.shift).includes(shift));
+                            }
+                            return parseShifts(c.shift).includes(shift);
+                        }).map(c => <option key={c.id} value={c.id}>{c.class_name}</option>)}
                     </select>
                 </div>
 
@@ -181,17 +201,28 @@ export default function TeacherAttendance() {
                                 value={shift}
                                 onChange={e => {
                                     const nextShift = e.target.value;
-                                    setShift(nextShift); if (nextShift === "all") return;
+                                    setShift(nextShift); 
+                                    if (nextShift === "all") return;
                                     const currentCls = classes.find(c => c.id === selectedClass);
-                                    if (currentCls && (currentCls.shift || 'morning') !== nextShift) {
-                                        const firstInShift = classes.find(c => (c.shift || 'morning') === nextShift);
-                                        setSelectedClass(firstInShift ? firstInShift.id : '');
-                                        if (!firstInShift) setStudents([]);
+                                    if (currentCls) {
+                                        const hasShift = currentCls.Sections && currentCls.Sections.length > 0
+                                            ? currentCls.Sections.some(s => parseShifts(s.shift).includes(nextShift))
+                                            : parseShifts(currentCls.shift).includes(nextShift);
+                                        if (!hasShift) {
+                                            const firstInShift = classes.find(c => {
+                                                if (c.Sections && c.Sections.length > 0) {
+                                                    return c.Sections.some(s => parseShifts(s.shift).includes(nextShift));
+                                                }
+                                                return parseShifts(c.shift).includes(nextShift);
+                                            });
+                                            setSelectedClass(firstInShift ? firstInShift.id : '');
+                                            if (!firstInShift) setStudents([]);
+                                        }
                                     }
                                 }}
                             >
-                                <option value="morning">Morning (Subax)</option>
-                                <option value="afternoon">Afternoon (Galab)</option>
+                                <option value="morning">Morning (Subax) 🌅</option>
+                                <option value="afternoon">Afternoon (Galab) 🌇</option>
                                 <option value="night">Night (Habeen) 🌙</option>
                                 <option value="all">Dhammaan (All)</option>
                             </select>

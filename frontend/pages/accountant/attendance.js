@@ -26,6 +26,34 @@ export default function AccountantAttendance() {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4001'
     const headers = () => ({ Authorization: `Bearer ${localStorage.getItem('token')}` })
 
+    // Parse shift field (CSV string or single) into array
+    const parseShifts = (shift) => {
+        if (!shift) return ['morning']
+        if (Array.isArray(shift)) return shift
+        return shift.split(',').map(s => s.trim()).filter(Boolean)
+    }
+
+    const SHIFT_LABELS = {
+        morning:   { label: 'Morning (Subax)',   emoji: '🌅' },
+        afternoon: { label: 'Afternoon (Galab)', emoji: '🌇' },
+        night:     { label: 'Night (Habeen)',    emoji: '🌙' },
+    }
+
+    // Compute available shifts based on selected section (or all sections in class)
+    const getAvailableShifts = () => {
+        const cls = classes.find(c => c.id === selectedClass)
+        if (!cls) return ['morning', 'afternoon', 'night']
+        const sections = cls.Sections || []
+        if (selectedSection) {
+            const sec = sections.find(s => s.id === selectedSection)
+            return sec ? parseShifts(sec.shift) : ['morning']
+        }
+        // Union of all shifts across all sections in the class
+        const all = new Set()
+        sections.forEach(s => parseShifts(s.shift).forEach(sh => all.add(sh)))
+        return all.size > 0 ? [...all] : ['morning']
+    }
+
     useEffect(() => {
         const fetchInitialData = async () => {
             try {
@@ -45,21 +73,24 @@ export default function AccountantAttendance() {
                 if (clsRes.data.length > 0) {
                     const firstClass = clsRes.data[0];
                     setSelectedClass(firstClass.id)
-                    setShift(firstClass.Sections?.[0]?.shift || 'morning')
+                    const firstShift = parseShifts(firstClass.Sections?.[0]?.shift || 'morning')[0]
+                    setShift(firstShift)
                 }
             } catch (err) { console.error(err) }
         }
         fetchInitialData()
     }, [])
 
+    // When section changes, auto-reset shift to first available for that section
     useEffect(() => {
         const cls = classes.find(c => c.id === selectedClass)
-        if (cls && cls.Sections?.length > 0) {
-            if (!cls.Sections.some(s => s.shift === shift)) {
-                setShift(cls.Sections[0].shift || 'morning')
-            }
+        if (!cls) return
+        const available = getAvailableShifts()
+        if (!available.includes(shift)) {
+            setShift(available[0] || 'morning')
         }
-    }, [selectedClass, classes])
+    }, [selectedClass, selectedSection, classes])
+
 
     useEffect(() => {
         if (router.query.status) {
@@ -199,9 +230,12 @@ export default function AccountantAttendance() {
                     <select
                         className="bg-gray-50 border-none rounded-2xl px-5 py-3 font-bold text-slate-700 focus:ring-2 focus:ring-blue-500 transition-all outline-none"
                         value={selectedClass}
-                        onChange={(e) => setSelectedClass(e.target.value)}
+                        onChange={(e) => {
+                            setSelectedClass(e.target.value)
+                            setSelectedSection('')
+                        }}
                     >
-                        {classes.filter(c => c.Sections && c.Sections.some(s => s.shift === shift)).map(c => <option key={c.id} value={c.id}>{c.class_name}</option>)}
+                        {classes.filter(c => c.Sections && c.Sections.some(s => parseShifts(s.shift).includes(shift))).map(c => <option key={c.id} value={c.id}>{c.class_name}</option>)}
                     </select>
                 </div>
 
@@ -241,17 +275,19 @@ export default function AccountantAttendance() {
                                     setShift(nextShift);
                                     // Reset class if it doesn't match new shift
                                     const currentCls = classes.find(c => c.id === selectedClass);
-                                    if (currentCls && currentCls.Sections && !currentCls.Sections.some(s => s.shift === nextShift)) {
-                                        const firstInShift = classes.find(c => c.Sections && c.Sections.some(s => s.shift === nextShift));
+                                    if (currentCls && currentCls.Sections && !currentCls.Sections.some(s => parseShifts(s.shift).includes(nextShift))) {
+                                        const firstInShift = classes.find(c => c.Sections && c.Sections.some(s => parseShifts(s.shift).includes(nextShift)));
                                         setSelectedClass(firstInShift ? firstInShift.id : '');
                                         setSelectedSection('');
                                         if (!firstInShift) setStudents([]);
                                     }
                                 }}
                             >
-                                <option value="morning">Morning (Subax)</option>
-                                <option value="afternoon">Afternoon (Galab)</option>
-                                <option value="night">Evening (Habeen) 🌙</option>
+                                {getAvailableShifts().map(sh => (
+                                    <option key={sh} value={sh}>
+                                        {SHIFT_LABELS[sh]?.label || sh} {SHIFT_LABELS[sh]?.emoji}
+                                    </option>
+                                ))}
                             </select>
                         </div>
 
