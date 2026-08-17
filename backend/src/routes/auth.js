@@ -173,7 +173,8 @@ router.post('/login', async (req, res) => {
           const remainingMinutes = Math.ceil(remainingMs / (60 * 1000));
           return res.status(429).json({ 
             message: `Isku-daygaagu aad buu u badan yahay. Fadlan sug ${remainingMinutes} daqiiqo ka hor intaadan mar kale isku dayin.`,
-            lockRemainingMs: remainingMs
+            lockRemainingMs: remainingMs,
+            lockedUntil: new Date(Date.now() + remainingMs).toISOString()
           });
         }
       }
@@ -194,17 +195,22 @@ router.post('/login', async (req, res) => {
 
       let warnMessage = 'Aqoonsigaagu waa khaldan yahay.';
       let lockRemainingMs = null;
+      let lockedUntil = null;
       if (newFails >= 3) {
          const group = Math.floor(newFails / 3);
          const newWaitMins = group === 1 ? 1 : (group - 1) * 5;
          warnMessage += ` Isku-dayga xad dhaafka ah darteed, waxaa lagu xannibay ${newWaitMins} daqiiqo.`;
          lockRemainingMs = newWaitMins * 60 * 1000;
+         lockedUntil = new Date(Date.now() + lockRemainingMs).toISOString();
       } else {
          const remainingAttempts = 3 - newFails;
          warnMessage += ` Waxaa kuu haray ${remainingAttempts} isku-day ka hor inta aan lagu xannibin 1 daqiiqo.`;
       }
       
-      return res.status(401).json({ message: warnMessage, ...(lockRemainingMs && { lockRemainingMs }) });
+      return res.status(401).json({ 
+        message: warnMessage, 
+        ...(lockRemainingMs && { lockRemainingMs, lockedUntil }) 
+      });
     }
 
     // IF CORRECT PASSWORD: Reset failed attempts
