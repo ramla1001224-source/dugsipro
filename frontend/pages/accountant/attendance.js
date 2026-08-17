@@ -283,11 +283,9 @@ export default function AccountantAttendance() {
                                     }
                                 }}
                             >
-                                {getAvailableShifts().map(sh => (
-                                    <option key={sh} value={sh}>
-                                        {SHIFT_LABELS[sh]?.label || sh} {SHIFT_LABELS[sh]?.emoji}
-                                    </option>
-                                ))}
+                                <option value="morning">Morning (Subax) 🌅</option>
+                                <option value="afternoon">Afternoon (Galab) 🌇</option>
+                                <option value="night">Night (Habeen) 🌙</option>
                             </select>
                         </div>
 
