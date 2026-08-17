@@ -161,7 +161,8 @@ router.post('/login', async (req, res) => {
     // ── BRUTE FORCE PROTECTION CHECK (Progressive Timeout) ──
     const fails = user.failedLoginAttempts || 0;
     if (fails >= 3) {
-      const waitMinutes = Math.floor(fails / 3) * 5; // 3 fails = 5m, 6 fails = 10m, 9 fails = 15m
+      const group = Math.floor(fails / 3);
+      const waitMinutes = group === 1 ? 1 : (group - 1) * 5;
       
       if (user.lastFailedAttempt) {
         const timeDiff = new Date() - new Date(user.lastFailedAttempt);
@@ -194,7 +195,8 @@ router.post('/login', async (req, res) => {
       let warnMessage = 'Aqoonsigaagu waa khaldan yahay.';
       let lockedUntil = null;
       if (newFails >= 3) {
-         const newWaitMins = Math.floor(newFails / 3) * 5;
+         const group = Math.floor(newFails / 3);
+         const newWaitMins = group === 1 ? 1 : (group - 1) * 5;
          warnMessage += ` Isku-dayga xad dhaafka ah darteed, waxaa lagu xannibay ${newWaitMins} daqiiqo.`;
          lockedUntil = new Date(Date.now() + newWaitMins * 60 * 1000).toISOString();
       } else {
