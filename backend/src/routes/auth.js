@@ -158,23 +158,18 @@ router.post('/login', async (req, res) => {
 
     if (!user) return res.status(401).json({ message: 'Aqoonsigaagu waa khaldan yahay' });
 
-    // ── BRUTE FORCE PROTECTION CHECK ──
-    if (user.isLocked) {
-      return res.status(403).json({ message: 'Akoonkaaga waa la xiray sababo amni awgood (Isku-day badan). Fadlan la xiriir maamulka.' });
-    }
-
-    if (user.failedLoginAttempts >= 5) {
+    // ── BRUTE FORCE PROTECTION CHECK (Progressive Timeout) ──
+    const fails = user.failedLoginAttempts || 0;
+    if (fails >= 3) {
+      const waitMinutes = Math.floor(fails / 3) * 5; // 3 fails = 5m, 6 fails = 10m, 9 fails = 15m
+      
       if (user.lastFailedAttempt) {
         const timeDiff = new Date() - new Date(user.lastFailedAttempt);
-        if (timeDiff < 5 * 60 * 1000) { // 5 minutes
-          return res.status(429).json({ message: 'Isku-daygaagu aad buu u badan yahay. Fadlan sug 5 daqiiqo ka hor intaadan mar kale isku dayin.' });
-        }
-      }
-    } else if (user.failedLoginAttempts >= 3) {
-      if (user.lastFailedAttempt) {
-        const timeDiff = new Date() - new Date(user.lastFailedAttempt);
-        if (timeDiff < 1 * 60 * 1000) { // 1 minute
-          return res.status(429).json({ message: 'Isku-daygaagu aad buu u badan yahay. Fadlan sug 1 daqiiqo ka hor intaadan mar kale isku dayin.' });
+        const waitMs = waitMinutes * 60 * 1000;
+        
+        if (timeDiff < waitMs) {
+          const remainingMinutes = Math.ceil((waitMs - timeDiff) / (60 * 1000));
+          return res.status(429).json({ message: `Isku-daygaagu aad buu u badan yahay. Fadlan sug ${remainingMinutes} daqiiqo ka hor intaadan mar kale isku dayin.` });
         }
       }
     }
@@ -182,25 +177,24 @@ router.post('/login', async (req, res) => {
     const match = await bcrypt.compare(password, user.password);
     if (!match) {
       const newFails = (user.failedLoginAttempts || 0) + 1;
-      const isNowLocked = newFails >= 10;
       
       await prisma.user.update({
         where: { id: user.id },
         data: {
           failedLoginAttempts: newFails,
           lastFailedAttempt: new Date(),
-          isLocked: isNowLocked
+          isLocked: false // Ensure it's never locked
         }
       });
 
-      if (isNowLocked) {
-        return res.status(403).json({ message: 'Akoonkaaga waa la xiray sababo amni awgood (Isku-day badan). Fadlan la xiriir maamulka.' });
-      }
-
       let warnMessage = 'Aqoonsigaagu waa khaldan yahay.';
-      if (newFails === 3) warnMessage += ' Haddii aad isku daydo mar kale, waxaad sugi doontaa 1 daqiiqo.';
-      if (newFails === 5) warnMessage += ' Haddii aad isku daydo mar kale, waxaad sugi doontaa 5 daqiiqo.';
-      if (newFails === 9) warnMessage += ' DIGNIIN: Hal mar baa kuu hartay ka hor inta aan akoonka la xirin!';
+      if (newFails >= 3) {
+         const newWaitMins = Math.floor(newFails / 3) * 5;
+         warnMessage += ` Isku-dayga xad dhaafka ah darteed, waxaa lagu xannibay ${newWaitMins} daqiiqo.`;
+      } else {
+         const remainingAttempts = 3 - newFails;
+         warnMessage += ` Waxaa kuu haray ${remainingAttempts} isku-day ka hor inta aan lagu xannibin 5 daqiiqo.`;
+      }
       
       return res.status(401).json({ message: warnMessage });
     }
