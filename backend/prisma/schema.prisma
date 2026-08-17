@@ -71,6 +71,9 @@ model User {
   customSmsSenderId String?
   customSmsProvider String?
   useCustomSmsApi   Boolean        @default(false)
+  failedLoginAttempts Int          @default(0)
+  lastFailedAttempt   DateTime?
+  isLocked            Boolean      @default(false)
   AuditLogs         AuditLog[]
   ReceivedMessages  Message[]      @relation("ReceivedMessages")
   SentMessages      Message[]      @relation("SentMessages")
