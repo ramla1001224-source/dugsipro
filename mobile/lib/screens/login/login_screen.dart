@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
@@ -37,6 +38,9 @@ class _LoginScreenState extends State<LoginScreen>
   String? _schoolLogo; // Set after shortcode is verified
   String? _selectedSchoolId; // Set if multiple schools exist
   bool? _isActive;
+  String? _lockedUntil;
+  String? _countdown;
+  Timer? _countdownTimer;
 
   // For inline multi-school picker (matches web index.js)
   List _schools = [];
@@ -90,6 +94,7 @@ class _LoginScreenState extends State<LoginScreen>
 
   @override
   void dispose() {
+    _countdownTimer?.cancel();
     _shortCodeCtrl.dispose();
     _usernameCtrl.dispose();
     _passwordCtrl.dispose();
@@ -222,6 +227,9 @@ class _LoginScreenState extends State<LoginScreen>
           final data = e.response!.data;
           if (data is Map && data['message'] != null) {
             msg = data['message'];
+            if (data['lockedUntil'] != null) {
+              _startCountdown(data['lockedUntil']);
+            }
           }
         } else if (rawError.contains('401')) {
           msg = 'Username ama Password aad gelisay waa khaldan yihiin.';
@@ -283,10 +291,51 @@ class _LoginScreenState extends State<LoginScreen>
       }
     } catch (e) {
       String msg = 'Xiriirku wuu fashilmay.';
-      if (e.toString().contains('401')) msg = 'Username ama password khaldan';
+      if (e is DioException && e.response?.data != null) {
+        final data = e.response!.data;
+        if (data is Map && data['message'] != null) {
+          msg = data['message'];
+          if (data['lockedUntil'] != null) {
+            _startCountdown(data['lockedUntil']);
+          }
+        }
+      } else if (e.toString().contains('401')) {
+        msg = 'Username ama password khaldan';
+      }
       setState(() => _error = msg);
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  void _startCountdown(String isoString) {
+    _countdownTimer?.cancel();
+    setState(() {
+      _lockedUntil = isoString;
+      _updateCountdown();
+    });
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) => _updateCountdown());
+  }
+
+  void _updateCountdown() {
+    if (_lockedUntil == null) return;
+    final lockTime = DateTime.parse(_lockedUntil!);
+    final now = DateTime.now();
+    final diff = lockTime.difference(now);
+
+    if (diff.isNegative) {
+      _countdownTimer?.cancel();
+      setState(() {
+        _countdown = null;
+        _lockedUntil = null;
+        _error = null;
+      });
+    } else {
+      final m = diff.inMinutes.remainder(60).toString().padLeft(2, '0');
+      final s = diff.inSeconds.remainder(60).toString().padLeft(2, '0');
+      setState(() {
+        _countdown = '$m:$s';
+      });
     }
   }
 
@@ -1054,11 +1103,12 @@ class _LoginScreenState extends State<LoginScreen>
                               width: double.infinity,
                               height: 56.h,
                               child: ElevatedButton(
-                                onPressed: _loading
+                                onPressed: (_loading || _countdown != null)
                                     ? null
                                     : (_isOwnerMode ? _loginAsOwner : _login),
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: const Color(0xFF2563EB),
+                                  disabledBackgroundColor: const Color(0xFF93C5FD),
                                   foregroundColor: Colors.white,
                                   elevation: 0,
                                   shape: RoundedRectangleBorder(
@@ -1075,7 +1125,7 @@ class _LoginScreenState extends State<LoginScreen>
                                         ),
                                       )
                                     : Text(
-                                        'SIGN IN NOW',
+                                        _countdown != null ? 'Fadlan Sug ($_countdown)' : 'SIGN IN NOW',
                                         style: TextStyle(
                                           fontWeight: FontWeight.w900,
                                           fontSize: 12.sp,

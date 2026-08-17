@@ -13,7 +13,31 @@ export default function Login() {
     const [schoolData, setSchoolData] = useState(null)
     const [error, setError] = useState('')
     const [loading, setLoading] = useState(false)
+    const [lockedUntil, setLockedUntil] = useState(null)
+    const [countdown, setCountdown] = useState(null)
     const { t } = useLanguage()
+
+    useEffect(() => {
+        let interval;
+        if (lockedUntil) {
+            interval = setInterval(() => {
+                const now = new Date().getTime()
+                const lockTime = new Date(lockedUntil).getTime()
+                const distance = lockTime - now
+                if (distance <= 0) {
+                    clearInterval(interval)
+                    setCountdown(null)
+                    setLockedUntil(null)
+                    setError('')
+                } else {
+                    const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60))
+                    const seconds = Math.floor((distance % (1000 * 60)) / 1000)
+                    setCountdown(`${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`)
+                }
+            }, 1000)
+        }
+        return () => clearInterval(interval)
+    }, [lockedUntil])
 
     useEffect(() => {
         // Haddii token hore loo keydiyay, toos u celi dashboardka
@@ -116,6 +140,9 @@ export default function Login() {
             window.location.href = dashboards[role] || '/student/dashboard'
         } catch (err) {
             setError(getErrorMessage(err, t))
+            if (err.response?.data?.lockedUntil) {
+                setLockedUntil(err.response.data.lockedUntil)
+            }
         } finally { setLoading(false) }
     }
 
@@ -243,10 +270,11 @@ export default function Login() {
                             </div>
 
                             <button
-                                disabled={loading}
-                                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-5 rounded-2xl shadow-xl shadow-blue-100 transition-all transform active:scale-[0.98] disabled:opacity-70 uppercase tracking-widest text-xs"
+                                type="submit"
+                                disabled={loading || !!countdown}
+                                className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white font-black py-4 rounded-2xl transition-all shadow-lg shadow-blue-100 flex items-center justify-center uppercase tracking-widest text-xs"
                             >
-                                {loading ? t('authenticating') : t('sign_in_now')}
+                                {loading ? t('loading') : countdown ? `Fadlan Sug (${countdown})` : t('login')}
                             </button>
 
                             <div className="pt-4 flex items-center justify-between gap-4">
