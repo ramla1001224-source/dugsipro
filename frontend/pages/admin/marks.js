@@ -73,7 +73,7 @@ export default function AdminMarks() {
             // Find ALL exams for this category and class
             let targetExams = filteredExamsForYear.filter(e => {
                 const baseName = e.name.includes(' - ') ? e.name.split(' - ')[0] : e.name;
-                return baseName === selectedExamName && e.classId === selectedClassId;
+                return baseName === selectedExamName && String(e.classId) === String(selectedClassId);
             })
 
             // Fallback: match global exams if specific class exams not found
