@@ -207,7 +207,7 @@ export default function AdminMarks() {
         document.body.removeChild(link);
     }
 
-    const isFinal = selectedExamName.toLowerCase().includes('final');
+    const isFinal = /final|term\s*2|gabo|kama/i.test(selectedExamName);
 
     const colorfulBg = [
         'bg-blue-100 text-blue-900 border-blue-200',
@@ -349,7 +349,7 @@ export default function AdminMarks() {
                                             )
                                         })}
                                         <th className="border border-gray-300 px-3 py-2 font-bold text-slate-700 text-center bg-slate-100">Total</th>
-                                        {isFinal && <th className="border border-gray-300 px-3 py-2 font-bold text-slate-700 text-center bg-slate-100">Celcelis</th>}
+                                        {isFinal && <th className="border border-gray-300 px-3 py-2 font-bold text-slate-700 text-center bg-slate-100">Celceliska</th>}
                                         <th className="border border-gray-300 px-3 py-2 font-bold text-slate-700 text-center bg-slate-100">Grade</th>
                                     </tr>
                                 </thead>
