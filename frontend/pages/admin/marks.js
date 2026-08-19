@@ -23,6 +23,8 @@ export default function AdminMarks() {
     const [loading, setLoading] = useState(false)
     const [searching, setSearching] = useState(false)
     const [gradingScales, setGradingScales] = useState([])
+    // studentTotals: { [studentId]: grandTotal } - sum of ALL terms for celceliska
+    const [studentGrandTotals, setStudentGrandTotals] = useState({})
 
     const tableRef = useRef(null)
 
@@ -69,6 +71,7 @@ export default function AdminMarks() {
         setLoading(true)
         setStudents([])
         setCategoryExams([])
+        setStudentGrandTotals({})
         try {
             // Find ALL exams for this category and class
             let targetExams = filteredExamsForYear.filter(e => {
@@ -144,6 +147,31 @@ export default function AdminMarks() {
 
             setMarksData(initialMarks)
 
+            // If Final category: also fetch all class results to compute grand total (celceliska)
+            const isFinalCat = selectedExamName.toLowerCase().includes('final')
+            if (isFinalCat && selectedClassId) {
+                try {
+                    let query = `?academicYearId=${selectedYearId}`
+                    if (selectedSectionId) query += `&sectionId=${selectedSectionId}`
+                    const fullRes = await axios.get(`${apiUrl}/api/exams/class-results/${selectedClassId}${query}`, { headers: headers() })
+                    const fullMarkSheet = fullRes.data.markSheet || []
+                    const grandTotals = {}
+                    fullMarkSheet.forEach(student => {
+                        let total = 0
+                        Object.values(student.subjects || {}).forEach(sub => {
+                            const allScores = sub.scores || {}
+                            Object.values(allScores).forEach(score => {
+                                if (score !== undefined && score !== null) total += Number(score)
+                            })
+                        })
+                        grandTotals[student.studentId] = total
+                    })
+                    setStudentGrandTotals(grandTotals)
+                } catch (e) {
+                    console.error('Could not fetch full class results for average', e)
+                }
+            }
+
         } catch (err) {
             console.error('Error searching:', err)
             alert('Search failed: ' + (err.response?.data?.message || err.message))
@@ -207,6 +235,8 @@ export default function AdminMarks() {
         document.body.removeChild(link);
     }
 
+
+    const isFinal = selectedExamName.toLowerCase().includes('final')
 
     const colorfulBg = [
         'bg-blue-100 text-blue-900 border-blue-200',
@@ -348,6 +378,7 @@ export default function AdminMarks() {
                                             )
                                         })}
                                         <th className="border border-gray-300 px-3 py-2 font-bold text-slate-700 text-center bg-slate-100">Total</th>
+                                        {isFinal && <th className="border border-gray-300 px-3 py-2 font-bold text-emerald-800 text-center bg-emerald-50">Celceliska</th>}
                                         <th className="border border-gray-300 px-3 py-2 font-bold text-slate-700 text-center bg-slate-100">Grade</th>
                                     </tr>
                                 </thead>
@@ -380,6 +411,15 @@ export default function AdminMarks() {
                                                     )
                                                 })}
                                                 <td className="border border-gray-300 px-3 py-2 text-center font-bold text-indigo-700 bg-slate-50">{total}</td>
+                                                {isFinal && (
+                                                    <td className="border border-gray-300 px-3 py-2 text-center font-bold text-emerald-700 bg-emerald-50">
+                                                        {(() => {
+                                                            const grand = studentGrandTotals[row.studentId]
+                                                            if (grand === undefined || grand === null) return '—'
+                                                            return Number.isFinite(grand) ? (grand / 2).toFixed(1).replace(/\.0$/, '') : '—'
+                                                        })()}
+                                                    </td>
+                                                )}
                                                 <td className="border border-gray-300 px-3 py-2 text-center font-bold bg-slate-50">
                                                     {calculateGrade(total, totalMax)}
                                                 </td>
