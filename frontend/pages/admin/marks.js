@@ -100,13 +100,6 @@ export default function AdminMarks() {
                 setDescription('')
             }
 
-            // Fetch students using the first exam's student-for-marks endpoint
-            const firstExamId = targetExams[0].id
-            let sectionQuery = selectedSectionId ? `?sectionId=${selectedSectionId}` : '';
-            const sRes = await axios.get(`${apiUrl}/api/exams/${firstExamId}/students-for-marks${sectionQuery}`, { headers: headers() })
-            const gradingSheet = sRes.data.data || []
-            setStudents(gradingSheet)
-
             // Fetch results for ALL targeted exams in parallel
             const resultsPromises = targetExams.map(ex => {
                 let rQuery = `?grading=true`;
@@ -117,7 +110,10 @@ export default function AdminMarks() {
             });
             const allResults = await Promise.all(resultsPromises);
 
-            const scales = allResults.find(r => r.gradingScales.length > 0)?.gradingScales || []
+            const gradingSheet = allResults.length > 0 ? allResults[0].data : [];
+            setStudents(gradingSheet);
+
+            const scales = allResults.find(r => r.gradingScales && r.gradingScales.length > 0)?.gradingScales || []
             setGradingScales(scales)
 
             // Initialize marks grid state
