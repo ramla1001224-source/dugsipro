@@ -74,6 +74,13 @@ export default function StudentReport() {
 
     const { student, subjects, grandTotal } = data
 
+    // Only show Celceliska if the student has taken the Final Exam
+    const hasFinal = subjects.some(sub => {
+        const sc = sub.scores || {}
+        return (sc['final'] !== undefined && sc['final'] !== null && sc['final'] !== '') ||
+               (sc['final_term'] !== undefined && sc['final_term'] !== null && sc['final_term'] !== '')
+    })
+
     return (
         <Layout title={`${student.name} - Report Card`}>
             <div className="max-w-4xl mx-auto">
@@ -82,19 +89,21 @@ export default function StudentReport() {
                         ← Back to List
                     </button>
                     <div className="flex gap-3">
-                        {/* Toggle Celceliska */}
-                        <button
-                            onClick={toggleAverage}
-                            className={`flex items-center gap-2 px-5 py-3 rounded-xl font-bold text-sm transition-all border-2 ${
-                                showAverage
-                                    ? 'bg-emerald-600 border-emerald-600 text-white shadow-lg shadow-emerald-100 hover:bg-emerald-700'
-                                    : 'bg-white border-slate-200 text-slate-500 hover:border-emerald-400 hover:text-emerald-600'
-                            }`}
-                            title={showAverage ? 'Qari Celceliska' : 'Muuji Celceliska'}
-                        >
-                            <span className="text-base">{showAverage ? '✅' : '⬜'}</span>
-                            <span>Celceliska</span>
-                        </button>
+                        {/* Toggle Celceliska - only when Final Exam is taken */}
+                        {hasFinal && (
+                            <button
+                                onClick={toggleAverage}
+                                className={`flex items-center gap-2 px-5 py-3 rounded-xl font-bold text-sm transition-all border-2 ${
+                                    showAverage
+                                        ? 'bg-emerald-600 border-emerald-600 text-white shadow-lg shadow-emerald-100 hover:bg-emerald-700'
+                                        : 'bg-white border-slate-200 text-slate-500 hover:border-emerald-400 hover:text-emerald-600'
+                                }`}
+                                title={showAverage ? 'Qari Celceliska' : 'Muuji Celceliska'}
+                            >
+                                <span className="text-base">{showAverage ? '✅' : '⬜'}</span>
+                                <span>Celceliska</span>
+                            </button>
+                        )}
                         <button
                             onClick={handlePrint}
                             className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3 rounded-xl font-bold shadow-lg shadow-indigo-100 transition-all flex items-center gap-2"
@@ -192,7 +201,7 @@ export default function StudentReport() {
                                             <td colSpan={1} className="px-6 py-6 text-center font-black text-3xl text-indigo-600">
                                                 {grandTotal}
                                             </td>
-                                            {showAverage && (
+                                            {hasFinal && showAverage && (
                                                 <td className="px-6 py-6 text-center font-black text-2xl text-emerald-600 bg-emerald-50/30">
                                                     <div className="text-[10px] text-emerald-500 mb-1 uppercase tracking-widest">Celceliska</div>
                                                     {Number.isFinite(grandTotal) ? (grandTotal / 2).toFixed(1).replace(/\.0$/, '') : '0'}

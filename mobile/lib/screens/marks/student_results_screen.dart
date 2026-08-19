@@ -577,7 +577,15 @@ class _StudentResultsScreenState extends State<StudentResultsScreen> {
                     child: Row(
                       children: [
                         _buildStatCell('Total', '$grandTotal/$grandMax', Colors.white),
-                        _buildStatCell('Celceliska', _celceliskaStr(grandTotal), const Color(0xFF10B981)),
+                        
+                        // Check if Final Exam is present in any subject
+                        if (_results.any((sub) {
+                          final sc = sub['scores'] ?? {};
+                          return (sc['final'] != null && sc['final'].toString().isNotEmpty) ||
+                                 (sc['final_term'] != null && sc['final_term'].toString().isNotEmpty);
+                        }))
+                          _buildStatCell('Celceliska', _celceliskaStr(grandTotal), const Color(0xFF10B981)),
+                          
                         _buildStatCell(
                           'Status',
                           status,

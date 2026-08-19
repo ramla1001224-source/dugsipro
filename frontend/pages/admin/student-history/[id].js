@@ -249,13 +249,21 @@ export default function StudentHistory() {
         const gTotal = fullExamData?.grandTotal || 0;
         const gMax = fullExamData?.grandMax || 0;
         
+        // Only show Celceliska if the student has taken the Final Exam
+        const hasFinal = filteredResults.some(sub => {
+            const sc = sub.scores || {}
+            return (sc['final'] !== undefined && sc['final'] !== null && sc['final'] !== '') ||
+                   (sc['final_term'] !== undefined && sc['final_term'] !== null && sc['final_term'] !== '') ||
+                   (sc['Final'] !== undefined && sc['Final'] !== null && sc['Final'] !== '')
+        })
+        
         const showAverage = typeof window !== 'undefined' ? localStorage.getItem('results_showAverage') !== 'false' : true;
         
         lastY += 10;
         doc.setFontSize(11);
         doc.setFont(undefined, 'bold');
         doc.text(`Wadarta Guud (Grand Total): ${gTotal} / ${gMax}`, 190, lastY, { align: 'right' });
-        if (showAverage) {
+        if (hasFinal && showAverage) {
             lastY += 7;
             doc.text(`Celceliska: ${Number.isFinite(gTotal) ? (gTotal / 2).toFixed(1).replace(/\.0$/, '') : 0}`, 190, lastY, { align: 'right' });
         }

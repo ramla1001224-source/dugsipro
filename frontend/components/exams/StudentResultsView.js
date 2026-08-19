@@ -55,6 +55,13 @@ export default function StudentResultsView({ data, years = [], selectedYearId = 
 
     const { student, subjects, grandTotal, grandMax, gradingScales = [], average, status, classPosition, totalStudentsInClass } = data
 
+    // Only show Celceliska if the student has taken the Final Exam
+    const hasFinal = subjects.some(sub => {
+        const sc = sub.scores || {}
+        return (sc['final'] !== undefined && sc['final'] !== null && sc['final'] !== '') ||
+               (sc['final_term'] !== undefined && sc['final_term'] !== null && sc['final_term'] !== '')
+    })
+
     // Compute average locally if backend didn't send it
     const displayAverage = average !== undefined ? average : (grandMax > 0 ? ((grandTotal / grandMax) * 100).toFixed(1) : 0)
     const displayStatus = status || (parseFloat(displayAverage) >= 50 ? 'Pass' : 'Fail')
@@ -138,19 +145,21 @@ export default function StudentResultsView({ data, years = [], selectedYearId = 
                     )}
                 </div>
                 <div className="flex flex-col items-end gap-3">
-                    {/* Toggle Celceliska */}
-                    <button
-                        onClick={toggleAverage}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs transition-all border ${
-                            showAverage
-                                ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/30'
-                                : 'bg-white/5 border-white/10 text-slate-400 hover:border-emerald-500/40 hover:text-emerald-300'
-                        }`}
-                        title={showAverage ? 'Qari Celceliska' : 'Muuji Celceliska'}
-                    >
-                        <span>{showAverage ? '✅' : '⬜'}</span>
-                        <span className="uppercase tracking-widest">Celceliska</span>
-                    </button>
+                    {/* Toggle Celceliska - only shown when Final Exam is taken */}
+                    {hasFinal && (
+                        <button
+                            onClick={toggleAverage}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs transition-all border ${
+                                showAverage
+                                    ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/30'
+                                    : 'bg-white/5 border-white/10 text-slate-400 hover:border-emerald-500/40 hover:text-emerald-300'
+                            }`}
+                            title={showAverage ? 'Qari Celceliska' : 'Muuji Celceliska'}
+                        >
+                            <span>{showAverage ? '✅' : '⬜'}</span>
+                            <span className="uppercase tracking-widest">Celceliska</span>
+                        </button>
+                    )}
                     <div className="text-left md:text-right">
                         <div className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-1">Wadarta Guud (Total)</div>
                         <div className="text-2xl md:text-3xl font-black text-indigo-400">
@@ -167,7 +176,7 @@ export default function StudentResultsView({ data, years = [], selectedYearId = 
                     <div className="text-[9px] font-black uppercase tracking-widest text-gray-400 mb-1.5">Total</div>
                     <div className="text-xl font-black text-slate-800">{grandTotal}<span className="text-xs text-slate-400 ml-1 font-bold">/{grandMax}</span></div>
                 </div>
-                {showAverage && (
+                {hasFinal && showAverage && (
                     <div className="flex flex-col items-center justify-center py-5 px-4 border-r border-gray-100">
                         <div className="text-[9px] font-black uppercase tracking-widest text-gray-400 mb-1.5">Celceliska</div>
                         <div className="text-xl font-black text-emerald-600">{Number.isFinite(grandTotal) ? (grandTotal / 2).toFixed(1).replace(/\.0$/, '') : 0}</div>

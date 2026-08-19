@@ -8,23 +8,22 @@ export default function AdminMarks() {
     const [academicYears, setAcademicYears] = useState([])
     const [subjects, setSubjects] = useState([])
     const [students, setStudents] = useState([])
+    const [categoryExams, setCategoryExams] = useState([]) // Exams for the selected category
     
     // Multi-step search state
     const [selectedYearId, setSelectedYearId] = useState('')
-    const [selectedExamName, setSelectedExamName] = useState('')
+    const [selectedExamName, setSelectedExamName] = useState('') // Exam Category
     const [selectedClassId, setSelectedClassId] = useState('')   // Grade ID
     const [selectedSectionId, setSelectedSectionId] = useState('') // Section ID
-    const [selectedSubjectId, setSelectedSubjectId] = useState('')
-    const [currentExamId, setCurrentExamId] = useState(null)
     const [description, setDescription] = useState('')
 
-    const [marksData, setMarksData] = useState({}) // { studentId: { marks: '', remarks: '', sectionId: '' } }
+    // marksData: { [studentId]: { mobile, studentName, studentRegId, sectionName, classId, sectionId, exams: { [examId]: { marks, remarks } } } }
+    const [marksData, setMarksData] = useState({})
     const [loading, setLoading] = useState(false)
     const [searching, setSearching] = useState(false)
     const [saving, setSaving] = useState(false)
     const [userRole, setUserRole] = useState('')
     const [gradingScales, setGradingScales] = useState([])
-    const [examTotalMarks, setExamTotalMarks] = useState(100)
 
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4001'
     const headers = () => ({ Authorization: `Bearer ${localStorage.getItem('token')}` })
@@ -61,71 +60,93 @@ export default function AdminMarks() {
     const availableSections = selectedClassObj?.Sections || []
 
     const handleSearch = async () => {
-        if (!selectedExamName || !selectedClassId || !selectedSubjectId) {
-            alert('Please select all filters first (Exam, Grade, and Subject are required)')
+        if (!selectedExamName || !selectedClassId) {
+            alert('Please select Exam Category and Grade first')
             return
         }
 
         setSearching(true)
         setLoading(true)
-        setStudents([]) // Clear previous results
+        setStudents([])
+        setCategoryExams([])
         try {
-            console.log('Searching for:', { selectedExamName, selectedClassId, selectedSubjectId, selectedSectionId });
-            
-            // Find the specific exam ID based on name, classId, and subjectId within the selected year
-            let targetExam = filteredExamsForYear.find(e => {
+            // Find ALL exams for this category and class
+            let targetExams = filteredExamsForYear.filter(e => {
                 const baseName = e.name.includes(' - ') ? e.name.split(' - ')[0] : e.name;
-                return baseName === selectedExamName &&
-                       e.classId === selectedClassId &&
-                       e.subjectId === selectedSubjectId
+                return baseName === selectedExamName && e.classId === selectedClassId;
             })
 
-            // FALLBACK: Match global exams if specific class exam not found
-            if (!targetExam) {
-                targetExam = filteredExamsForYear.find(e => {
+            // Fallback: match global exams if specific class exams not found
+            if (targetExams.length === 0) {
+                const globalExams = filteredExamsForYear.filter(e => {
                     const baseName = e.name.includes(' - ') ? e.name.split(' - ')[0] : e.name;
-                    return baseName === selectedExamName &&
-                           !e.classId &&
-                           e.subjectId === selectedSubjectId
+                    return baseName === selectedExamName && !e.classId;
                 })
+                targetExams.push(...globalExams);
             }
 
-            console.log('Target Exam found:', targetExam);
-
-            if (!targetExam) {
-                alert('No matching exam found for the selected year. Make sure exams have been created.')
-                setStudents([])
+            if (targetExams.length === 0) {
+                alert('No exams found for this category and class. Make sure exams have been created.')
                 setLoading(false)
                 setSearching(false)
                 return
             }
 
-            setCurrentExamId(targetExam.id)
+            setCategoryExams(targetExams)
+            
+            if (targetExams[0].description) {
+                setDescription(targetExams[0].description)
+            } else {
+                setDescription('')
+            }
 
-            // Fetch students from this specific section + existing results
-            const [sRes, rRes] = await Promise.all([
-                axios.get(`${apiUrl}/api/exams/${targetExam.id}/students-for-marks?sectionId=${selectedSectionId}`, { headers: headers() }),
-                axios.get(`${apiUrl}/api/exams/${targetExam.id}/results?grading=true&sectionId=${selectedSectionId}`, { headers: headers() })
-            ])
-
-            const gradingSheet = rRes.data.data || []
+            // Fetch students using the first exam's student-for-marks endpoint
+            const firstExamId = targetExams[0].id
+            let sectionQuery = selectedSectionId ? `?sectionId=${selectedSectionId}` : '';
+            const sRes = await axios.get(`${apiUrl}/api/exams/${firstExamId}/students-for-marks${sectionQuery}`, { headers: headers() })
+            const gradingSheet = sRes.data.data || []
             setStudents(gradingSheet)
-            setGradingScales(rRes.data.gradingScales || [])
-            setExamTotalMarks(targetExam.totalMarks || 100)
 
+            // Fetch results for ALL targeted exams in parallel
+            const resultsPromises = targetExams.map(ex => {
+                let rQuery = `?grading=true`;
+                if (selectedSectionId) rQuery += `&sectionId=${selectedSectionId}`;
+                return axios.get(`${apiUrl}/api/exams/${ex.id}/results${rQuery}`, { headers: headers() })
+                     .then(r => ({ examId: ex.id, data: r.data.data || [], gradingScales: r.data.gradingScales || [] }))
+                     .catch(() => ({ examId: ex.id, data: [], gradingScales: [] }))
+            });
+            const allResults = await Promise.all(resultsPromises);
+
+            const scales = allResults.find(r => r.gradingScales.length > 0)?.gradingScales || []
+            setGradingScales(scales)
+
+            // Initialize marks grid state
             const initialMarks = {}
             gradingSheet.forEach(row => {
                 initialMarks[row.studentId] = {
-                    marks: row.marks !== '' ? row.marks : '',
-                    remarks: row.remarks || '',
-                    sectionId: row.sectionId || selectedSectionId,
+                    studentName: row.studentName,
+                    studentRegId: row.studentRegId,
+                    sectionName: row.sectionName,
                     classId: row.classId || selectedClassId,
+                    sectionId: row.sectionId || selectedSectionId,
                     mobile: row.student?.Parents?.[0]?.parent?.phone || row.student?.user?.phone || row.student?.phone || '---',
-                    id: row.id
+                    exams: {}
                 }
             })
+
+            allResults.forEach(resObj => {
+                resObj.data.forEach(row => {
+                    if (initialMarks[row.studentId]) {
+                        initialMarks[row.studentId].exams[resObj.examId] = {
+                            marks: row.marks !== '' && row.marks !== null ? row.marks : '',
+                            remarks: row.remarks || '',
+                            id: row.id
+                        }
+                    }
+                })
+            })
+
             setMarksData(initialMarks)
-            if (targetExam.description) setDescription(targetExam.description)
 
         } catch (err) {
             console.error('Error searching:', err)
@@ -136,24 +157,29 @@ export default function AdminMarks() {
         }
     }
 
-    const handleMarkChange = (studentId, field, value) => {
+    const handleMarkChange = (studentId, examId, field, value) => {
         setMarksData(prev => ({
             ...prev,
             [studentId]: {
                 ...prev[studentId],
-                [field]: value
+                exams: {
+                    ...prev[studentId].exams,
+                    [examId]: {
+                        ...(prev[studentId].exams?.[examId] || {}),
+                        [field]: value
+                    }
+                }
             }
         }))
     }
 
-    const calculateGrade = (marks) => {
+    const calculateGrade = (marks, totalMax) => {
         if (marks === '' || marks === undefined || marks === null) return '—'
         const marksVal = parseFloat(marks)
-        if (isNaN(marksVal) || !examTotalMarks) return 'F'
+        if (isNaN(marksVal) || !totalMax) return 'F'
         
-        const percentage = Math.round((marksVal / examTotalMarks) * 100)
+        const percentage = Math.round((marksVal / totalMax) * 100)
         
-        // Robust dynamic scale matching (DESC sort ensures correct priority)
         if (gradingScales && gradingScales.length > 0) {
             const sortedScales = [...gradingScales]
                 .filter(s => s && s.minScore !== undefined)
@@ -163,7 +189,6 @@ export default function AdminMarks() {
             if (match) return match.grade
         }
 
-        // Standard Fallback (Matching Somali Standard)
         if (percentage >= 90) return 'A+'
         if (percentage >= 85) return 'B++'
         if (percentage >= 80) return 'B-'
@@ -175,18 +200,25 @@ export default function AdminMarks() {
 
     const handleSubmit = async (e) => {
         e.preventDefault()
-        if (!currentExamId) return alert('Please search first')
+        if (categoryExams.length === 0) return alert('Please search first')
         setSaving(true)
         try {
-            const results = students.map(row => ({
-                studentId: row.studentId,
-                classId: row.classId || selectedClassId,
-                sectionId: row.sectionId || selectedSectionId,
-                marks: marksData[row.studentId]?.marks !== '' ? Number(marksData[row.studentId]?.marks) : 0,
-                remarks: marksData[row.studentId]?.remarks || ''
-            }))
+            const promises = categoryExams.map(ex => {
+                const results = students.map(row => {
+                    const cell = marksData[row.studentId]?.exams?.[ex.id]
+                    return {
+                        studentId: row.studentId,
+                        classId: row.classId || selectedClassId,
+                        sectionId: row.sectionId || selectedSectionId,
+                        marks: (cell?.marks !== '' && cell?.marks !== undefined && cell?.marks !== null) ? Number(cell.marks) : null,
+                        remarks: cell?.remarks || ''
+                    }
+                })
+                // Only send payload if there's actual data
+                return axios.post(`${apiUrl}/api/exams/${ex.id}/results`, { results }, { headers: headers() })
+            })
 
-            await axios.post(`${apiUrl}/api/exams/${currentExamId}/results`, { results }, { headers: headers() })
+            await Promise.all(promises)
             alert('Marks saved successfully!')
         } catch (err) {
             alert(err.response?.data?.message || err.message || 'Error saving marks')
@@ -194,6 +226,8 @@ export default function AdminMarks() {
             setSaving(false)
         }
     }
+
+    const isFinal = selectedExamName.toLowerCase().includes('final');
 
     return (
         <Layout title="Student Marks Management">
@@ -210,15 +244,15 @@ export default function AdminMarks() {
                         <span className="text-slate-300">/</span>
                         <span className="text-slate-400 text-xs font-bold uppercase tracking-widest">Marks</span>
                     </div>
-                    <h2 className="text-xl font-bold text-slate-700">Natiijada & Marks</h2>
+                    <h2 className="text-xl font-bold text-slate-700">Natiijada & Marks (Grid View)</h2>
                 </div>
                 <div className="bg-white p-2 rounded-lg shadow-sm border border-gray-100 italic text-gray-400 text-sm">
-                    Search and enter student marks
+                    View and enter student marks across all subjects
                 </div>
             </div>
 
             <div className="bg-gray-50/50 p-8 rounded-2xl border border-gray-100 mb-8">
-                <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-6">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
                     <div>
                         <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 block">Academic Year</label>
                         <select
@@ -231,18 +265,18 @@ export default function AdminMarks() {
                         </select>
                     </div>
                     <div>
-                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 block">Exam</label>
+                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 block">Exam Category</label>
                         <select
                             className="w-full p-3 rounded-xl border border-gray-200 focus:border-indigo-500 outline-none bg-white text-sm font-bold text-slate-700 appearance-none cursor-pointer"
                             value={selectedExamName}
                             onChange={e => setSelectedExamName(e.target.value)}
                         >
-                            <option value="">Select Exam</option>
+                            <option value="">Select Category</option>
                             {uniqueExamNames.map(name => <option key={name} value={name}>{name}</option>)}
                         </select>
                     </div>
                     <div>
-                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 block">Grade</label>
+                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 block">Grade / Class</label>
                         <select
                             className="w-full p-3 rounded-xl border border-gray-200 focus:border-indigo-500 outline-none bg-white text-sm font-bold text-slate-700 appearance-none cursor-pointer"
                             value={selectedClassId}
@@ -260,19 +294,8 @@ export default function AdminMarks() {
                             onChange={e => setSelectedSectionId(e.target.value)}
                             disabled={!selectedClassId}
                         >
-                            <option value="">Select Section</option>
+                            <option value="">All Sections</option>
                             {availableSections.map(sec => <option key={sec.id} value={sec.id}>Section {sec.name || 'General'} ({sec.shift})</option>)}
-                        </select>
-                    </div>
-                    <div>
-                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 block">Subject</label>
-                        <select
-                            className="w-full p-3 rounded-xl border border-gray-200 focus:border-indigo-500 outline-none bg-white text-sm font-bold text-slate-700 appearance-none cursor-pointer"
-                            value={selectedSubjectId}
-                            onChange={e => setSelectedSubjectId(e.target.value)}
-                        >
-                            <option value="">Select Subject</option>
-                            {subjects.map(sub => <option key={sub.id} value={sub.id}>{sub.name}</option>)}
                         </select>
                     </div>
                 </div>
@@ -303,13 +326,13 @@ export default function AdminMarks() {
                 <div className="flex justify-center p-20">
                     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
                 </div>
-            ) : students.length > 0 ? (
+            ) : students.length > 0 && categoryExams.length > 0 ? (
                 <form onSubmit={handleSubmit} className="animate-in fade-in slide-in-from-bottom-4 duration-500">
                     <div className="bg-white rounded-[2rem] shadow-xl border border-gray-100 overflow-hidden">
                         <div className="p-8 flex justify-between items-center border-b border-gray-50 bg-slate-50/50">
                             <div>
-                                <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest">Student List</h3>
-                                <p className="text-xs text-slate-400 font-medium">Recording marks for {students.length} students · Section {availableSections.find(s => s.id === selectedSectionId)?.name || ''}</p>
+                                <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest">Student Grid</h3>
+                                <p className="text-xs text-slate-400 font-medium">Recording marks for {students.length} students · {categoryExams.length} Subjects</p>
                             </div>
                             {userRole !== '' && (
                                 <button
@@ -322,56 +345,80 @@ export default function AdminMarks() {
                             )}
                         </div>
                         <div className="overflow-x-auto w-full">
-<table className="w-full text-left">
-                            <thead>
-                                <tr className="text-[10px] uppercase font-bold text-gray-400 border-b border-gray-50">
-                                    <th className="px-8 py-5">#</th>
-                                    <th className="px-8 py-5">RollNo</th>
-                                    <th className="px-8 py-5">Name</th>
-                                    <th className="px-8 py-5">Mobile</th>
-                                    <th className="px-8 py-5 w-32 text-center">Marks Obtained</th>
-                                    <th className="px-8 py-5 text-center">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-50">
-                                {students.map((row, idx) => (
-                                    <tr key={row.studentId} className="hover:bg-gray-50/50 transition-colors">
-                                        <td className="px-8 py-5 text-xs font-bold text-slate-400">{idx + 1}</td>
-                                        <td className="px-8 py-5 text-xs font-bold text-slate-800">{row.studentRegId}</td>
-                                        <td className="px-8 py-5">
-                                            <div className="font-bold text-slate-700">{row.studentName}</div>
-                                            <div className="text-[10px] text-gray-400 font-medium uppercase">Sec. {row.sectionName || 'N/A'}</div>
-                                        </td>
-                                        <td className="px-8 py-5 text-xs text-slate-500 font-medium">{marksData[row.studentId]?.mobile || '---'}</td>
-                                        <td className="px-8 py-5">
-                                            <input
-                                                type="number"
-                                                className={`w-full p-3 rounded-xl border border-gray-100 focus:border-indigo-500 text-center font-bold text-indigo-600 outline-none ${userRole === '' ? 'bg-gray-100' : 'bg-gray-50/50'}`}
-                                                value={marksData[row.studentId]?.marks ?? ''}
-                                                onChange={e => handleMarkChange(row.studentId, 'marks', e.target.value)}
-                                                readOnly={userRole === ''}
-                                            />
-                                        </td>
-                                         <td className="px-8 py-5 text-center">
-                                            <span className="text-xs font-bold text-indigo-500 bg-indigo-50 px-3 py-1 rounded-full border border-indigo-100 shadow-sm">
-                                                {calculateGrade(marksData[row.studentId]?.marks)}
-                                            </span>
-                                        </td>
+                            <table className="w-full text-left whitespace-nowrap">
+                                <thead>
+                                    <tr className="text-[10px] uppercase font-bold text-gray-400 border-b border-gray-50">
+                                        <th className="px-6 py-5">#</th>
+                                        <th className="px-6 py-5">RollNo</th>
+                                        <th className="px-6 py-5">Name</th>
+                                        {categoryExams.map(ex => {
+                                            const subName = subjects.find(s => s.id === ex.subjectId)?.name || 'Subject'
+                                            return <th key={ex.id} className="px-4 py-5 text-center min-w-[80px]" title={ex.name}>{subName} <br/><span className="text-[9px] text-gray-300">({ex.totalMarks})</span></th>
+                                        })}
+                                        <th className="px-6 py-5 text-center text-indigo-400">Total</th>
+                                        {isFinal && <th className="px-6 py-5 text-center text-emerald-400">Celceliska</th>}
+                                        <th className="px-6 py-5 text-center">Grade</th>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
-</div>
+                                </thead>
+                                <tbody className="divide-y divide-gray-50">
+                                    {students.map((row, idx) => {
+                                        const studentMarks = marksData[row.studentId]
+                                        let total = 0
+                                        let totalMax = 0
+                                        categoryExams.forEach(ex => {
+                                            const m = studentMarks?.exams?.[ex.id]?.marks
+                                            if (m !== '' && m !== undefined && m !== null) total += Number(m)
+                                            totalMax += Number(ex.totalMarks || 100)
+                                        })
+
+                                        return (
+                                            <tr key={row.studentId} className="hover:bg-gray-50/50 transition-colors">
+                                                <td className="px-6 py-4 text-xs font-bold text-slate-400">{idx + 1}</td>
+                                                <td className="px-6 py-4 text-xs font-bold text-slate-800">{row.studentRegId}</td>
+                                                <td className="px-6 py-4 min-w-[150px]">
+                                                    <div className="font-bold text-slate-700 truncate">{row.studentName}</div>
+                                                    <div className="text-[10px] text-gray-400 font-medium uppercase">Sec. {row.sectionName || 'N/A'}</div>
+                                                </td>
+                                                {categoryExams.map(ex => (
+                                                    <td key={ex.id} className="px-2 py-4">
+                                                        <input
+                                                            type="number"
+                                                            className={`w-full max-w-[80px] mx-auto p-2 rounded-lg border border-gray-200 focus:border-indigo-500 text-center font-bold text-slate-700 outline-none ${userRole === '' ? 'bg-gray-100' : 'bg-white'}`}
+                                                            value={studentMarks?.exams?.[ex.id]?.marks ?? ''}
+                                                            onChange={e => handleMarkChange(row.studentId, ex.id, 'marks', e.target.value)}
+                                                            readOnly={userRole === ''}
+                                                            min={0}
+                                                            max={ex.totalMarks || 100}
+                                                        />
+                                                    </td>
+                                                ))}
+                                                <td className="px-6 py-4 text-center font-black text-indigo-600">{total}</td>
+                                                {isFinal && (
+                                                    <td className="px-6 py-4 text-center font-black text-emerald-600">
+                                                        {Number.isFinite(total) ? (total / 2).toFixed(1).replace(/\.0$/, '') : 0}
+                                                    </td>
+                                                )}
+                                                <td className="px-6 py-4 text-center">
+                                                    <span className="text-xs font-bold text-indigo-500 bg-indigo-50 px-3 py-1 rounded-full border border-indigo-100 shadow-sm">
+                                                        {calculateGrade(total, totalMax)}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        )
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </form>
             ) : (selectedClassId && !searching) && (
                 <div className="bg-white p-20 rounded-[2.5rem] text-center border-2 border-dashed border-gray-100">
                     <div className="text-4xl mb-4 grayscale opacity-20">📊</div>
                     <h3 className="text-gray-400 font-bold uppercase tracking-widest text-xs">
-                        {searching ? 'Eegayaa (Searching)...' : 'Arday Lama Helin (No Students Found)'}
+                        {searching ? 'Eegayaa (Searching)...' : 'Arday Ama Imtixaan Lama Helin'}
                     </h3>
                     <p className="text-gray-300 text-[10px] mt-2 italic">
-                        Hubi haddii imtixaanka la abuuray iyo haddii ardaydu ku jiraan xilli ciyaareedkan (year).
+                        Hubi haddii imtixaanka la abuuray iyo haddii ardaydu ku jiraan xilli ciyaareedkan.
                     </p>
                 </div>
             )}

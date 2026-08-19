@@ -110,7 +110,7 @@ export default function MarkSheet() {
                         <th>Student Name</th>
                         ${data.subjects.map(sub => `<th>${sub.name} (TOT)</th>`).join('')}
                         <th>Grand Total</th>
-                        ${showAverage ? '<th>Celceliska</th>' : ''}
+                        ${filterType === 'final' && showAverage ? '<th>Celceliska</th>' : ''}
                         <th>Grade</th>
                     </tr>
         `;
@@ -126,7 +126,7 @@ export default function MarkSheet() {
                         return `<td style="text-align: center;">${subData.total}</td>`;
                     }).join('')}
                     <td style="text-align: center; font-weight: bold;">${student.displayTotal}</td>
-                    ${showAverage ? `<td style="text-align: center; font-weight: bold;">${Number.isFinite(student.displayTotal) ? (student.displayTotal / 2).toFixed(1).replace(/\.0$/, '') : 0}</td>` : ''}
+                    ${filterType === 'final' && showAverage ? `<td style="text-align: center; font-weight: bold;">${Number.isFinite(student.displayTotal) ? (student.displayTotal / 2).toFixed(1).replace(/\.0$/, '') : 0}</td>` : ''}
                     <td style="text-align: center; font-weight: bold;">${student.displayGrade}</td>
                 </tr>
             `;
@@ -180,7 +180,7 @@ export default function MarkSheet() {
                             <th>Student Name</th>
                             ${data.subjects.map(sub => `<th>${sub.name}</th>`).join('')}
                             <th>Grand Total</th>
-                            ${showAverage ? '<th>Celceliska</th>' : ''}
+                            ${filterType === 'final' && showAverage ? '<th>Celceliska</th>' : ''}
                             <th>Grade</th>
                         </tr>
                     </thead>
@@ -199,7 +199,7 @@ export default function MarkSheet() {
                         return `<td style="text-align: center;">${subData.total}</td>`;
                     }).join('')}
                     <td style="text-align: center;"><b>${student.displayTotal}</b></td>
-                    ${showAverage ? `<td style="text-align: center;"><b>${Number.isFinite(student.displayTotal) ? (student.displayTotal / 2).toFixed(1).replace(/\.0$/, '') : 0}</b></td>` : ''}
+                    ${filterType === 'final' && showAverage ? `<td style="text-align: center;"><b>${Number.isFinite(student.displayTotal) ? (student.displayTotal / 2).toFixed(1).replace(/\.0$/, '') : 0}</b></td>` : ''}
                     <td style="text-align: center;"><b>${student.displayGrade}</b></td>
                 </tr>
             `;
@@ -336,19 +336,21 @@ export default function MarkSheet() {
                     <p className="text-gray-400 text-sm font-medium">Consolidated academic performance by class</p>
                 </div>
                 <div className="flex gap-3 no-print">
-                    {/* Toggle Celceliska Button */}
-                    <button
-                        onClick={toggleAverage}
-                        className={`flex items-center gap-2 px-5 py-3 rounded-xl font-bold text-sm transition-all border-2 ${
-                            showAverage
-                                ? 'bg-emerald-600 border-emerald-600 text-white shadow-lg shadow-emerald-100 hover:bg-emerald-700'
-                                : 'bg-white border-slate-200 text-slate-500 hover:border-emerald-400 hover:text-emerald-600'
-                        }`}
-                        title={showAverage ? 'Qari Celceliska' : 'Muuji Celceliska'}
-                    >
-                        <span className="text-base">{showAverage ? '✅' : '⬜'}</span>
-                        <span>Celceliska</span>
-                    </button>
+                    {/* Toggle Celceliska Button - Only shown when Final Exam is selected */}
+                    {filterType === 'final' && (
+                        <button
+                            onClick={toggleAverage}
+                            className={`flex items-center gap-2 px-5 py-3 rounded-xl font-bold text-sm transition-all border-2 ${
+                                showAverage
+                                    ? 'bg-emerald-600 border-emerald-600 text-white shadow-lg shadow-emerald-100 hover:bg-emerald-700'
+                                    : 'bg-white border-slate-200 text-slate-500 hover:border-emerald-400 hover:text-emerald-600'
+                            }`}
+                            title={showAverage ? 'Qari Celceliska' : 'Muuji Celceliska'}
+                        >
+                            <span className="text-base">{showAverage ? '✅' : '⬜'}</span>
+                            <span>Celceliska</span>
+                        </button>
+                    )}
                     <button
                         onClick={() => router.push('/admin/exams')}
                         className="bg-gray-100 hover:bg-gray-200 text-gray-600 px-6 py-3 rounded-xl font-bold transition-all"
@@ -479,7 +481,7 @@ export default function MarkSheet() {
                                         </th>
                                     ))}
                                     <th className="px-6 py-4 text-center bg-slate-800">Grand Total</th>
-                                    {showAverage && (
+                                    {filterType === 'final' && showAverage && (
                                         <th className="px-6 py-4 text-center bg-emerald-700 text-white">Celceliska</th>
                                     )}
                                     <th className="px-6 py-4 text-center bg-indigo-700">Grade</th>
@@ -526,7 +528,7 @@ export default function MarkSheet() {
                                         <td className="px-6 py-4 text-center bg-indigo-600 text-white font-black text-lg print:text-base print:bg-white print:text-indigo-700 print:border-l print:border-indigo-100">
                                             {student.displayTotal}
                                         </td>
-                                        {showAverage && (
+                                        {filterType === 'final' && showAverage && (
                                             <td className="px-6 py-4 text-center bg-emerald-600 text-white font-black text-lg print:text-base print:bg-white print:text-emerald-700">
                                                 {Number.isFinite(student.displayTotal) ? (student.displayTotal / 2).toFixed(1).replace(/\.0$/, '') : 0}
                                             </td>
