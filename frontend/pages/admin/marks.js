@@ -1,6 +1,7 @@
 import Layout from '../../components/Layout'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import axios from 'axios'
+import * as XLSX from 'xlsx'
 
 export default function AdminMarks() {
     const [exams, setExams] = useState([])
@@ -21,15 +22,14 @@ export default function AdminMarks() {
     const [marksData, setMarksData] = useState({})
     const [loading, setLoading] = useState(false)
     const [searching, setSearching] = useState(false)
-    const [saving, setSaving] = useState(false)
-    const [userRole, setUserRole] = useState('')
     const [gradingScales, setGradingScales] = useState([])
+
+    const tableRef = useRef(null)
 
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4001'
     const headers = () => ({ Authorization: `Bearer ${localStorage.getItem('token')}` })
 
     useEffect(() => {
-        setUserRole(localStorage.getItem('role') || '')
         fetchInitialData()
     }, [])
 
@@ -153,22 +153,6 @@ export default function AdminMarks() {
         }
     }
 
-    const handleMarkChange = (studentId, examId, field, value) => {
-        setMarksData(prev => ({
-            ...prev,
-            [studentId]: {
-                ...prev[studentId],
-                exams: {
-                    ...prev[studentId].exams,
-                    [examId]: {
-                        ...(prev[studentId].exams?.[examId] || {}),
-                        [field]: value
-                    }
-                }
-            }
-        }))
-    }
-
     const calculateGrade = (marks, totalMax) => {
         if (marks === '' || marks === undefined || marks === null) return '—'
         const marksVal = parseFloat(marks)
@@ -194,36 +178,47 @@ export default function AdminMarks() {
         return 'F'
     }
 
-    const handleSubmit = async (e) => {
-        e.preventDefault()
-        if (categoryExams.length === 0) return alert('Please search first')
-        setSaving(true)
-        try {
-            const promises = categoryExams.map(ex => {
-                const results = students.map(row => {
-                    const cell = marksData[row.studentId]?.exams?.[ex.id]
-                    return {
-                        studentId: row.studentId,
-                        classId: row.classId || selectedClassId,
-                        sectionId: row.sectionId || selectedSectionId,
-                        marks: (cell?.marks !== '' && cell?.marks !== undefined && cell?.marks !== null) ? Number(cell.marks) : null,
-                        remarks: cell?.remarks || ''
-                    }
-                })
-                // Only send payload if there's actual data
-                return axios.post(`${apiUrl}/api/exams/${ex.id}/results`, { results }, { headers: headers() })
-            })
+    const exportToExcel = () => {
+        const table = document.getElementById("marks-table");
+        const wb = XLSX.utils.table_to_book(table, { sheet: "Marks" });
+        XLSX.writeFile(wb, `Marks_${selectedExamName}_${new Date().getTime()}.xlsx`);
+    }
 
-            await Promise.all(promises)
-            alert('Marks saved successfully!')
-        } catch (err) {
-            alert(err.response?.data?.message || err.message || 'Error saving marks')
-        } finally {
-            setSaving(false)
-        }
+    const exportToWord = () => {
+        const header = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+        <head><meta charset='utf-8'><title>Export HTML To Doc</title>
+        <style>
+            table { border-collapse: collapse; width: 100%; }
+            th, td { border: 1px solid black; padding: 5px; text-align: center; }
+            th { background-color: #f2f2f2; }
+        </style>
+        </head><body>`;
+        const footer = "</body></html>";
+        const tableHtml = document.getElementById("marks-table").outerHTML;
+        const html = header + tableHtml + footer;
+        
+        const blob = new Blob(['\ufeff', html], { type: 'application/msword' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `Marks_${selectedExamName}_${new Date().getTime()}.doc`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     }
 
     const isFinal = selectedExamName.toLowerCase().includes('final');
+
+    const colorfulBg = [
+        'bg-blue-100 text-blue-900 border-blue-200',
+        'bg-green-100 text-green-900 border-green-200',
+        'bg-purple-100 text-purple-900 border-purple-200',
+        'bg-yellow-100 text-yellow-900 border-yellow-200',
+        'bg-pink-100 text-pink-900 border-pink-200',
+        'bg-teal-100 text-teal-900 border-teal-200',
+        'bg-orange-100 text-orange-900 border-orange-200',
+        'bg-indigo-100 text-indigo-900 border-indigo-200'
+    ];
 
     return (
         <Layout title="Student Marks Management">
@@ -240,10 +235,10 @@ export default function AdminMarks() {
                         <span className="text-slate-300">/</span>
                         <span className="text-slate-400 text-xs font-bold uppercase tracking-widest">Marks</span>
                     </div>
-                    <h2 className="text-xl font-bold text-slate-700">Natiijada & Marks (Grid View)</h2>
+                    <h2 className="text-xl font-bold text-slate-700">Natiijada & Marks (Excel View)</h2>
                 </div>
                 <div className="bg-white p-2 rounded-lg shadow-sm border border-gray-100 italic text-gray-400 text-sm">
-                    View and enter student marks across all subjects
+                    View, export, and manage student marks
                 </div>
             </div>
 
@@ -296,17 +291,6 @@ export default function AdminMarks() {
                     </div>
                 </div>
 
-                <div className="mb-6">
-                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 block">Description</label>
-                    <textarea
-                        className={`w-full p-4 rounded-xl border border-gray-200 focus:border-indigo-500 outline-none ${userRole === 'admin' ? 'bg-gray-100' : 'bg-white'} text-sm font-medium text-slate-600 h-24 resize-none`}
-                        placeholder="Add additional description or context here..."
-                        value={description}
-                        onChange={e => setDescription(e.target.value)}
-                        readOnly={userRole === ''}
-                    ></textarea>
-                </div>
-
                 <div className="flex justify-end">
                     <button
                         onClick={handleSearch}
@@ -323,40 +307,53 @@ export default function AdminMarks() {
                     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
                 </div>
             ) : students.length > 0 && categoryExams.length > 0 ? (
-                <form onSubmit={handleSubmit} className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                    <div className="bg-white rounded-[2rem] shadow-xl border border-gray-100 overflow-hidden">
-                        <div className="p-8 flex justify-between items-center border-b border-gray-50 bg-slate-50/50">
+                <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <div className="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
+                        <div className="p-4 flex justify-between items-center border-b border-gray-200 bg-slate-50">
                             <div>
-                                <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest">Student Grid</h3>
-                                <p className="text-xs text-slate-400 font-medium">Recording marks for {students.length} students · {categoryExams.length} Subjects</p>
+                                <h3 className="text-sm font-black text-slate-600 uppercase tracking-widest">Mark Sheet</h3>
+                                <p className="text-xs text-slate-500 font-medium">Viewing marks for {students.length} students · {categoryExams.length} Subjects</p>
                             </div>
-                            {userRole !== '' && (
+                            <div className="flex gap-2">
                                 <button
-                                    type="submit"
-                                    disabled={saving}
-                                    className={`${saving ? 'bg-gray-400 cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-700'} text-white px-6 py-2 rounded-xl text-xs font-bold uppercase tracking-widest shadow-lg shadow-purple-100 transition-all`}
+                                    onClick={exportToExcel}
+                                    className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 shadow-sm transition-colors"
                                 >
-                                    {saving ? 'Saving...' : 'SAVE ALL'}
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                                    Export Excel
                                 </button>
-                            )}
+                                <button
+                                    onClick={exportToWord}
+                                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 shadow-sm transition-colors"
+                                >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                                    Export Word
+                                </button>
+                            </div>
                         </div>
-                        <div className="overflow-x-auto w-full">
-                            <table className="w-full text-left whitespace-nowrap">
+                        <div className="overflow-x-auto w-full p-4 bg-gray-100">
+                            <table id="marks-table" className="w-full text-left whitespace-nowrap border-collapse border border-gray-300 bg-white text-sm shadow-sm">
                                 <thead>
-                                    <tr className="text-[10px] uppercase font-bold text-gray-400 border-b border-gray-50">
-                                        <th className="px-6 py-5">#</th>
-                                        <th className="px-6 py-5">RollNo</th>
-                                        <th className="px-6 py-5">Name</th>
-                                        {categoryExams.map(ex => {
+                                    <tr className="bg-slate-200">
+                                        <th className="border border-gray-300 px-3 py-2 font-bold text-slate-700 text-center w-10">#</th>
+                                        <th className="border border-gray-300 px-3 py-2 font-bold text-slate-700 text-center w-24">RollNo</th>
+                                        <th className="border border-gray-300 px-3 py-2 font-bold text-slate-700">Name</th>
+                                        {categoryExams.map((ex, idx) => {
                                             const subName = subjects.find(s => s.id === ex.subjectId)?.name || 'Subject'
-                                            return <th key={ex.id} className="px-4 py-5 text-center min-w-[80px]" title={ex.name}>{subName} <br/><span className="text-[9px] text-gray-300">({ex.totalMarks})</span></th>
+                                            const colorClass = colorfulBg[idx % colorfulBg.length]
+                                            return (
+                                                <th key={ex.id} className={`border border-gray-300 px-3 py-2 font-black text-center min-w-[80px] ${colorClass}`} title={ex.name}>
+                                                    {subName} <br/>
+                                                    <span className="text-[10px] opacity-70 font-semibold">({ex.totalMarks})</span>
+                                                </th>
+                                            )
                                         })}
-                                        <th className="px-6 py-5 text-center text-indigo-400">Total</th>
-                                        {isFinal && <th className="px-6 py-5 text-center text-emerald-400">Celceliska</th>}
-                                        <th className="px-6 py-5 text-center">Grade</th>
+                                        <th className="border border-gray-300 px-3 py-2 font-bold text-slate-700 text-center bg-slate-100">Total</th>
+                                        {isFinal && <th className="border border-gray-300 px-3 py-2 font-bold text-slate-700 text-center bg-slate-100">Celcelis</th>}
+                                        <th className="border border-gray-300 px-3 py-2 font-bold text-slate-700 text-center bg-slate-100">Grade</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-gray-50">
+                                <tbody>
                                     {students.map((row, idx) => {
                                         const studentMarks = marksData[row.studentId]
                                         let total = 0
@@ -368,36 +365,30 @@ export default function AdminMarks() {
                                         })
 
                                         return (
-                                            <tr key={row.studentId} className="hover:bg-gray-50/50 transition-colors">
-                                                <td className="px-6 py-4 text-xs font-bold text-slate-400">{idx + 1}</td>
-                                                <td className="px-6 py-4 text-xs font-bold text-slate-800">{row.studentRegId}</td>
-                                                <td className="px-6 py-4 min-w-[150px]">
-                                                    <div className="font-bold text-slate-700 truncate">{row.studentName}</div>
-                                                    <div className="text-[10px] text-gray-400 font-medium uppercase">Sec. {row.sectionName || 'N/A'}</div>
+                                            <tr key={row.studentId} className="hover:bg-slate-50 transition-colors group">
+                                                <td className="border border-gray-300 px-3 py-2 text-center font-medium text-slate-500">{idx + 1}</td>
+                                                <td className="border border-gray-300 px-3 py-2 text-center font-semibold text-slate-700">{row.studentRegId}</td>
+                                                <td className="border border-gray-300 px-3 py-2 font-bold text-slate-800">
+                                                    {row.studentName}
+                                                    {row.sectionName && <span className="ml-2 text-[10px] text-gray-400 font-normal">Sec: {row.sectionName}</span>}
                                                 </td>
-                                                {categoryExams.map(ex => (
-                                                    <td key={ex.id} className="px-2 py-4">
-                                                        <input
-                                                            type="number"
-                                                            className={`w-full max-w-[80px] mx-auto p-2 rounded-lg border border-gray-200 focus:border-indigo-500 text-center font-bold text-slate-700 outline-none ${userRole === '' ? 'bg-gray-100' : 'bg-white'}`}
-                                                            value={studentMarks?.exams?.[ex.id]?.marks ?? ''}
-                                                            onChange={e => handleMarkChange(row.studentId, ex.id, 'marks', e.target.value)}
-                                                            readOnly={userRole === ''}
-                                                            min={0}
-                                                            max={ex.totalMarks || 100}
-                                                        />
-                                                    </td>
-                                                ))}
-                                                <td className="px-6 py-4 text-center font-black text-indigo-600">{total}</td>
+                                                {categoryExams.map(ex => {
+                                                    const m = studentMarks?.exams?.[ex.id]?.marks;
+                                                    const displayMark = (m !== '' && m !== undefined && m !== null) ? m : '-';
+                                                    return (
+                                                        <td key={ex.id} className="border border-gray-300 px-3 py-2 text-center font-semibold text-slate-700 group-hover:bg-blue-50/30">
+                                                            {displayMark}
+                                                        </td>
+                                                    )
+                                                })}
+                                                <td className="border border-gray-300 px-3 py-2 text-center font-bold text-indigo-700 bg-slate-50">{total}</td>
                                                 {isFinal && (
-                                                    <td className="px-6 py-4 text-center font-black text-emerald-600">
+                                                    <td className="border border-gray-300 px-3 py-2 text-center font-bold text-emerald-700 bg-slate-50">
                                                         {Number.isFinite(total) ? (total / 2).toFixed(1).replace(/\.0$/, '') : 0}
                                                     </td>
                                                 )}
-                                                <td className="px-6 py-4 text-center">
-                                                    <span className="text-xs font-bold text-indigo-500 bg-indigo-50 px-3 py-1 rounded-full border border-indigo-100 shadow-sm">
-                                                        {calculateGrade(total, totalMax)}
-                                                    </span>
+                                                <td className="border border-gray-300 px-3 py-2 text-center font-bold bg-slate-50">
+                                                    {calculateGrade(total, totalMax)}
                                                 </td>
                                             </tr>
                                         )
@@ -406,9 +397,9 @@ export default function AdminMarks() {
                             </table>
                         </div>
                     </div>
-                </form>
+                </div>
             ) : (selectedClassId && !searching) && (
-                <div className="bg-white p-20 rounded-[2.5rem] text-center border-2 border-dashed border-gray-100">
+                <div className="bg-white p-20 rounded-[2.5rem] text-center border-2 border-dashed border-gray-200">
                     <div className="text-4xl mb-4 grayscale opacity-20">📊</div>
                     <h3 className="text-gray-400 font-bold uppercase tracking-widest text-xs">
                         {searching ? 'Eegayaa (Searching)...' : 'Arday Ama Imtixaan Lama Helin'}
