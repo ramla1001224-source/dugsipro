@@ -207,7 +207,6 @@ export default function AdminMarks() {
         document.body.removeChild(link);
     }
 
-    const isFinal = selectedExamName.toLowerCase().includes('final');
 
     const colorfulBg = [
         'bg-blue-100 text-blue-900 border-blue-200',
@@ -349,7 +348,6 @@ export default function AdminMarks() {
                                             )
                                         })}
                                         <th className="border border-gray-300 px-3 py-2 font-bold text-slate-700 text-center bg-slate-100">Total</th>
-                                        {isFinal && <th className="border border-gray-300 px-3 py-2 font-bold text-slate-700 text-center bg-slate-100">Celceliska</th>}
                                         <th className="border border-gray-300 px-3 py-2 font-bold text-slate-700 text-center bg-slate-100">Grade</th>
                                     </tr>
                                 </thead>
@@ -382,11 +380,6 @@ export default function AdminMarks() {
                                                     )
                                                 })}
                                                 <td className="border border-gray-300 px-3 py-2 text-center font-bold text-indigo-700 bg-slate-50">{total}</td>
-                                                {isFinal && (
-                                                    <td className="border border-gray-300 px-3 py-2 text-center font-bold text-emerald-700 bg-slate-50">
-                                                        {Number.isFinite(total) ? (total / 2).toFixed(1).replace(/\.0$/, '') : 0}
-                                                    </td>
-                                                )}
                                                 <td className="border border-gray-300 px-3 py-2 text-center font-bold bg-slate-50">
                                                     {calculateGrade(total, totalMax)}
                                                 </td>

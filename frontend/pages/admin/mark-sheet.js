@@ -110,7 +110,7 @@ export default function MarkSheet() {
                         <th>Student Name</th>
                         ${data.subjects.map(sub => `<th>${sub.name} (TOT)</th>`).join('')}
                         <th>Grand Total</th>
-                        ${(filterType === 'final' || filterType === 'all') && showAverage ? '<th>Celceliska</th>' : ''}
+                        ${filterType === 'all' && showAverage ? '<th>Celceliska</th>' : ''}
                         <th>Grade</th>
                     </tr>
         `;
@@ -126,7 +126,7 @@ export default function MarkSheet() {
                         return `<td style="text-align: center;">${subData.total}</td>`;
                     }).join('')}
                     <td style="text-align: center; font-weight: bold;">${student.displayTotal}</td>
-                    ${(filterType === 'final' || filterType === 'all') && showAverage ? `<td style="text-align: center; font-weight: bold;">${Number.isFinite(student.displayTotal) ? (student.displayTotal / 2).toFixed(1).replace(/\.0$/, '') : 0}</td>` : ''}
+                    ${filterType === 'all' && showAverage ? `<td style="text-align: center; font-weight: bold;">${Number.isFinite(student.displayTotal) ? (student.displayTotal / 2).toFixed(1).replace(/\.0$/, '') : 0}</td>` : ''}
                     <td style="text-align: center; font-weight: bold;">${student.displayGrade}</td>
                 </tr>
             `;
@@ -180,7 +180,7 @@ export default function MarkSheet() {
                             <th>Student Name</th>
                             ${data.subjects.map(sub => `<th>${sub.name}</th>`).join('')}
                             <th>Grand Total</th>
-                            ${(filterType === 'final' || filterType === 'all') && showAverage ? '<th>Celceliska</th>' : ''}
+                            ${filterType === 'all' && showAverage ? '<th>Celceliska</th>' : ''}
                             <th>Grade</th>
                         </tr>
                     </thead>
@@ -199,7 +199,7 @@ export default function MarkSheet() {
                         return `<td style="text-align: center;">${subData.total}</td>`;
                     }).join('')}
                     <td style="text-align: center;"><b>${student.displayTotal}</b></td>
-                    ${(filterType === 'final' || filterType === 'all') && showAverage ? `<td style="text-align: center;"><b>${Number.isFinite(student.displayTotal) ? (student.displayTotal / 2).toFixed(1).replace(/\.0$/, '') : 0}</b></td>` : ''}
+                    ${filterType === 'all' && showAverage ? `<td style="text-align: center;"><b>${Number.isFinite(student.displayTotal) ? (student.displayTotal / 2).toFixed(1).replace(/\.0$/, '') : 0}</b></td>` : ''}
                     <td style="text-align: center;"><b>${student.displayGrade}</b></td>
                 </tr>
             `;
@@ -337,7 +337,7 @@ export default function MarkSheet() {
                 </div>
                 <div className="flex gap-3 no-print">
                     {/* Toggle Celceliska Button - Only shown when Final Exam is selected */}
-                    {(filterType === 'final' || filterType === 'all') && (
+                    {filterType === 'all' && (
                         <button
                             onClick={toggleAverage}
                             className={`flex items-center gap-2 px-5 py-3 rounded-xl font-bold text-sm transition-all border-2 ${
@@ -481,7 +481,7 @@ export default function MarkSheet() {
                                         </th>
                                     ))}
                                     <th className="px-6 py-4 text-center bg-slate-800">Grand Total</th>
-                                    {(filterType === 'final' || filterType === 'all') && showAverage && (
+                                    {filterType === 'all' && showAverage && (
                                         <th className="px-6 py-4 text-center bg-emerald-700 text-white">Celceliska</th>
                                     )}
                                     <th className="px-6 py-4 text-center bg-indigo-700">Grade</th>
@@ -528,7 +528,7 @@ export default function MarkSheet() {
                                         <td className="px-6 py-4 text-center bg-indigo-600 text-white font-black text-lg print:text-base print:bg-white print:text-indigo-700 print:border-l print:border-indigo-100">
                                             {student.displayTotal}
                                         </td>
-                                        {(filterType === 'final' || filterType === 'all') && showAverage && (
+                                        {filterType === 'all' && showAverage && (
                                             <td className="px-6 py-4 text-center bg-emerald-600 text-white font-black text-lg print:text-base print:bg-white print:text-emerald-700">
                                                 {Number.isFinite(student.displayTotal) ? (student.displayTotal / 2).toFixed(1).replace(/\.0$/, '') : 0}
                                             </td>
