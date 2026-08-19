@@ -207,7 +207,7 @@ export default function AdminMarks() {
         document.body.removeChild(link);
     }
 
-    const isFinal = /final|term\s*2|gabo|kama/i.test(selectedExamName);
+    const isFinal = selectedExamName.toLowerCase().includes('final');
 
     const colorfulBg = [
         'bg-blue-100 text-blue-900 border-blue-200',
