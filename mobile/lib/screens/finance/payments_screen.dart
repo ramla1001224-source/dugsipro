@@ -311,7 +311,7 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
   Future<void> _exportCsv() async {
     try {
       final rows = <List<String>>[
-        ['Magaca Ardayga', 'ID', 'Xaalad', 'Bixiyay', 'Fee-ga', 'Hadhay']
+        ['Magaca Ardayga', 'ID', 'Fasalka', 'Xaalad', 'Bixiyay', 'Fee-ga', 'Hadhay']
       ];
 
       for (final s in _monthlyStatus) {
@@ -323,6 +323,7 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
         rows.add([
           s['name'] ?? '',
           s['student_id'] ?? '',
+          s['className'] ?? '-',
           status == 'paid' ? 'Paid' : status == 'partial' ? 'Partial' : 'Unpaid',
           '\$${amountPaid.toStringAsFixed(2)}',
           '\$${classFee.toStringAsFixed(2)}',

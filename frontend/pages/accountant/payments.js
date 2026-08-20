@@ -165,6 +165,7 @@ export default function AccountantPayments() {
                 return {
                     'Magaca Ardayga': s.name,
                     'ID': s.student_id,
+                    'Fasalka': s.className || classes.find(c => c.id === selectedClass)?.class_name || '-',
                     'Xaalad': status === 'paid' ? 'Paid' : status === 'partial' ? 'Partial' : 'Unpaid',
                     'Bixiyay': `$${amountPaid.toFixed(2)}`,
                     'Fee-ga': `$${classFee.toFixed(2)}`,
@@ -177,6 +178,7 @@ export default function AccountantPayments() {
                 return {
                     'Magaca Ardayga': s.user?.name || s.name,
                     'ID': s.student_id,
+                    'Fasalka': classes.find(c => c.id === selectedClass)?.class_name || '-',
                     'Lacag': p ? `$${p.amount}` : 'Unpaid',
                     'Taariikhda': p ? new Date(p.date).toLocaleDateString() : '—',
                     'Habka': p ? p.payment_method : 'Pending',
@@ -207,10 +209,11 @@ export default function AccountantPayments() {
             }
             return
         }
-        const pdfHeaders = ['Magaca', 'ID', 'Lacag', 'Taariikhda', 'Habka']
+        const pdfHeaders = ['Magaca', 'ID', 'Fasalka', 'Lacag', 'Taariikhda', 'Habka']
         const data = students.map(s => {
             const p = payments.find(pay => pay.studentId === s.id)
-            return [s.user?.name || s.name, s.student_id, p ? `$${p.amount}` : 'Unpaid', p ? new Date(p.date).toLocaleDateString() : '—', p ? p.payment_method : 'Pending']
+            const className = classes.find(c => c.id === selectedClass)?.class_name || '-'
+            return [s.user?.name || s.name, s.student_id, className, p ? `$${p.amount}` : 'Unpaid', p ? new Date(p.date).toLocaleDateString() : '—', p ? p.payment_method : 'Pending']
         })
         exportToPDF(pdfHeaders, data, `Payments_history_Report`, 'Payments', null)
     }

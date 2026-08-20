@@ -557,6 +557,7 @@ router.get('/monthly-status', authenticateToken, authorizeRoles('admin', 'owner'
         studentId: e.studentId,
         name: e.student.user.name,
         student_id: e.student.student_id,
+        className: enrollment?.clss?.class_name || '',
         status: rec?.status || 'unpaid',
         amountPaid: rec?.amountPaid || 0,
         classFee
