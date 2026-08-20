@@ -2,6 +2,7 @@ import Layout from '../../components/Layout'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
 import axios from 'axios'
+import { exportToExcel, exportToPDF } from '../../utils/reportUtils'
 
 export default function AccountantPayments() {
     const [viewMode, setViewMode] = useState('status') // 'status' or 'history'
@@ -152,6 +153,68 @@ export default function AccountantPayments() {
 
     const monthsSomaali = ["Janaayo", "Febraayo", "Maarso", "Abriil", "Maajo", "Juun", "Luulyo", "Agoosto", "Sebteembar", "Oktoobar", "Noofeembar", "Diseembar"]
 
+    const handleExportExcel = () => {
+        let data = []
+        if (viewMode === 'status') {
+            data = monthlyStatus.map(s => {
+                const status = localStatuses[s.studentId] || s.status
+                const classFee = s.classFee || 0
+                let amountPaid = s.amountPaid || 0
+                if (status === 'paid') amountPaid = classFee
+                const remaining = Math.max(0, classFee - amountPaid)
+                return {
+                    'Magaca Ardayga': s.name,
+                    'ID': s.student_id,
+                    'Xaalad': status === 'paid' ? 'Paid' : status === 'partial' ? 'Partial' : 'Unpaid',
+                    'Bixiyay': `$${amountPaid.toFixed(2)}`,
+                    'Fee-ga': `$${classFee.toFixed(2)}`,
+                    'Hadhay': `$${remaining.toFixed(2)}`
+                }
+            })
+        } else {
+            data = students.map(s => {
+                const p = payments.find(pay => pay.studentId === s.id)
+                return {
+                    'Magaca Ardayga': s.user?.name || s.name,
+                    'ID': s.student_id,
+                    'Lacag': p ? `$${p.amount}` : 'Unpaid',
+                    'Taariikhda': p ? new Date(p.date).toLocaleDateString() : '—',
+                    'Habka': p ? p.payment_method : 'Pending',
+                    'Transaction ID': p?.transactionId || '-'
+                }
+            })
+        }
+        exportToExcel(data, `Payments_${viewMode}_Report`)
+    }
+
+    const handleExportPDF = async () => {
+        if (viewMode === 'status') {
+            const info = typeof window !== 'undefined' ? localStorage.getItem('schoolInfo') : ''
+            const schoolQuery = info ? `&schoolId=${JSON.parse(info).id}` : ''
+            const url = `${apiUrl}/api/payments/monthly-status/pdf?classId=${selectedClass}${selectedSection ? `&sectionId=${selectedSection}` : ''}&month=${month}&year=${year}${schoolQuery}`
+            const token = localStorage.getItem('token')
+            try {
+                const res = await axios.get(url, { headers: { Authorization: `Bearer ${token}` }, responseType: 'blob' })
+                const blob = new Blob([res.data], { type: 'application/pdf' })
+                const link = document.createElement('a')
+                link.href = URL.createObjectURL(blob)
+                const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December']
+                link.download = `Fee_Report_${monthNames[month - 1]}_${year}.pdf`
+                link.click()
+                URL.revokeObjectURL(link.href)
+            } catch (err) {
+                alert('PDF download khalad ah: ' + (err.response?.data?.message || err.message))
+            }
+            return
+        }
+        const pdfHeaders = ['Magaca', 'ID', 'Lacag', 'Taariikhda', 'Habka']
+        const data = students.map(s => {
+            const p = payments.find(pay => pay.studentId === s.id)
+            return [s.user?.name || s.name, s.student_id, p ? `$${p.amount}` : 'Unpaid', p ? new Date(p.date).toLocaleDateString() : '—', p ? p.payment_method : 'Pending']
+        })
+        exportToPDF(pdfHeaders, data, `Payments_history_Report`, 'Payments', null)
+    }
+
     return (
         <Layout title="Payments">
             <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 mb-10">
@@ -161,6 +224,18 @@ export default function AccountantPayments() {
                 </div>
 
                 <div className="bg-white p-4 rounded-3xl shadow-sm border border-gray-100 flex flex-wrap gap-4 items-center">
+                    <button
+                        onClick={handleExportPDF}
+                        className="bg-red-50 text-red-600 px-5 py-3 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-red-100 transition-all"
+                    >
+                        📄 Dagso PDF ahaan
+                    </button>
+                    <button
+                        onClick={handleExportExcel}
+                        className="bg-emerald-50 text-emerald-600 px-5 py-3 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-emerald-100 transition-all"
+                    >
+                        📊 Dagso Excel ahaan
+                    </button>
                     <div className="flex flex-col">
                         <label className="text-[10px] font-black uppercase text-gray-400 mb-1 ml-1 tracking-widest">Class</label>
                         <select className="bg-gray-50 border-none rounded-xl px-4 py-2 font-bold text-slate-700 outline-none w-32" value={selectedClass} onChange={e => setSelectedClass(e.target.value)}>
