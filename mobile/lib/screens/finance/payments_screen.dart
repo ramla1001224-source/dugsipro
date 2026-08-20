@@ -32,7 +32,8 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
   List<dynamic> _payments = [];
   List<dynamic> _students = []; // for history view - all students
   List<dynamic> _monthlyStatus = [];
-  final Map<String, String> _localStatuses = {}; // studentId: 'paid' | 'unpaid'
+  final Map<String, String> _localStatuses = {}; // studentId: 'paid' | 'partial' | 'unpaid'
+  final Map<String, double> _partialAmounts = {}; // studentId: amountPaid
 
   String _bulkMethod = 'Cash';
   bool _saving = false;
@@ -127,6 +128,7 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
             _monthlyStatus =
                 res.data is List ? res.data : (res.data['data'] ?? []);
             _localStatuses.clear();
+            _partialAmounts.clear();
             _loading = false;
           });
         }
@@ -149,16 +151,62 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
     }
   }
 
-  void _toggleStatus(String studentId, String currentStatus) {
+  Future<void> _toggleStatus(String studentId, String currentStatus, double classFee) async {
     final eff = _localStatuses[studentId] ?? currentStatus;
-    if (!_canDeletePayment && eff == 'paid') {
+    if (!_canDeletePayment && (eff == 'paid' || eff == 'partial')) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Fasax uma lihid inaad tirtirto lacag bixinta.'),
+          content: Text('Fasax uma lihid inaad bedesho lacag bixinta.'),
           backgroundColor: Colors.red));
       return;
     }
+
+    String newStatus = 'unpaid';
+    if (eff == 'unpaid') newStatus = 'paid';
+    else if (eff == 'paid') newStatus = 'partial';
+
+    if (newStatus == 'partial') {
+      final TextEditingController amountCtrl = TextEditingController();
+      final bool? confirmed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Lacagta Qaybta ah (Partial)'),
+          content: TextField(
+            controller: amountCtrl,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: InputDecoration(
+              hintText: 'Gali lacagta (Max: \$${classFee.toStringAsFixed(2)})',
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Kansal'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final amt = double.tryParse(amountCtrl.text) ?? 0;
+                if (amt <= 0 || (classFee > 0 && amt > classFee)) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                    content: Text('Lacagtu waa inay u dhexaysaa 0 ilaa max'),
+                  ));
+                  return;
+                }
+                _partialAmounts[studentId] = amt;
+                Navigator.pop(ctx, true);
+              },
+              child: const Text('Xaqiiji'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true) return; // User cancelled
+    }
+
     setState(() {
-      _localStatuses[studentId] = eff == 'paid' ? 'unpaid' : 'paid';
+      _localStatuses[studentId] = newStatus;
+      if (newStatus != 'partial') {
+        _partialAmounts.remove(studentId);
+      }
     });
   }
 
@@ -171,6 +219,8 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
           .map((e) => {
                 'studentId': e.key,
                 'status': e.value,
+                if (e.value == 'partial' && _partialAmounts.containsKey(e.key))
+                  'amountPaid': _partialAmounts[e.key],
               })
           .toList();
 
@@ -185,6 +235,7 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Payments synced successfully!')));
         _localStatuses.clear();
+        _partialAmounts.clear();
         _loadData();
       }
     } catch (e) {
@@ -544,6 +595,10 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
         final name = s['name'] ?? '';
         final currentStatus = _localStatuses[sId] ?? s['status'] ?? 'unpaid';
         final isPaid = currentStatus == 'paid';
+        final isPartial = currentStatus == 'partial';
+        
+        final classFee = (s['classFee'] ?? 0).toDouble();
+        final amountPaid = isPaid ? classFee : isPartial ? (_partialAmounts[sId] ?? s['amountPaid'] ?? 0) : 0;
 
         return Container(
           margin: const EdgeInsets.only(bottom: 8),
@@ -553,7 +608,7 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
             borderRadius: BorderRadius.circular(12.r),
             border: Border.all(
                 color:
-                    isPaid ? const Color(0xFFDCFCE7) : const Color(0xFFFEE2E2)),
+                    isPaid ? const Color(0xFFDCFCE7) : isPartial ? Colors.orange.shade200 : const Color(0xFFFEE2E2)),
           ),
           child: Row(
             children: [
@@ -577,31 +632,45 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
                             fontSize: 13.sp,
                             color: AppTheme.textPrimary)),
                     SizedBox(height: 2.h),
-                    Text(s['student_id'] ?? '',
-                        style: TextStyle(
-                            fontSize: 10.sp,
-                            fontWeight: FontWeight.bold,
-                            color: AppTheme.textSecondary)),
+                    Row(
+                      children: [
+                        Text(s['student_id'] ?? '',
+                            style: TextStyle(
+                                fontSize: 10.sp,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.textSecondary)),
+                        if (classFee > 0) ...[
+                          SizedBox(width: 8.w),
+                          Text('\$${amountPaid.toStringAsFixed(2)} / \$${classFee.toStringAsFixed(2)}',
+                            style: TextStyle(
+                              fontSize: 10.sp, 
+                              fontWeight: FontWeight.w900, 
+                              color: isPaid ? const Color(0xFF10B981) : isPartial ? Colors.orange : AppTheme.textSecondary
+                            )
+                          ),
+                        ]
+                      ],
+                    ),
                   ],
                 ),
               ),
               GestureDetector(
-                onTap: () => _toggleStatus(sId, s['status'] ?? 'unpaid'),
+                onTap: () => _toggleStatus(sId, s['status'] ?? 'unpaid', classFee),
                 child: Container(
                   padding:
                       EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
                   decoration: BoxDecoration(
                     color: isPaid
                         ? const Color(0xFF10B981)
-                        : const Color(0xFFFEF2F2),
+                        : isPartial ? Colors.orange : const Color(0xFFFEF2F2),
                     borderRadius: BorderRadius.circular(8.r),
                   ),
                   child: Text(
-                    isPaid ? 'PAID' : 'UNPAID',
+                    isPaid ? 'PAID' : isPartial ? 'PARTIAL' : 'UNPAID',
                     style: TextStyle(
                       fontSize: 10.sp,
                       fontWeight: FontWeight.w900,
-                      color: isPaid ? Colors.white : const Color(0xFFDC2626),
+                      color: (isPaid || isPartial) ? Colors.white : const Color(0xFFDC2626),
                     ),
                   ),
                 ),

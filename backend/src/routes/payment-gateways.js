@@ -123,33 +123,39 @@ router.post('/callback', async (req, res) => {
       data: { gatewayResponse: JSON.stringify(gatewayResponse) || 'SUCCESS' }
     });
 
-    // Auto-verify MonthlyPaymentRecord ONLY if it's the FULL amount
+    // Auto-verify MonthlyPaymentRecord
     if (payment.month && payment.year) {
       const expectedAmount = await resolveStudentTuitionFeeByStudentId(prisma, payment.studentId, payment.month, payment.year);
 
-      if (payment.amount >= expectedAmount) {
-        // Mark as paid only if amount is sufficient
-        const recordId = crypto.randomUUID();
-        await prisma.$executeRawUnsafe(`
-          INSERT INTO "MonthlyPaymentRecord" (id, "studentId", month, year, status, "updatedAt")
-          VALUES ($1, $2, $3, $4, $5, NOW())
-          ON CONFLICT ("studentId", month, year) 
-          DO UPDATE SET status = EXCLUDED.status, "updatedAt" = NOW()
-        `, recordId, payment.studentId, payment.month, payment.year, 'paid');
-      } else {
-        // Partial payment - do not mark as paid, just record amount
-        await prisma.monthlyPaymentRecord.updateMany({
-          where: {
-            studentId: payment.studentId,
-            month: payment.month,
-            year: payment.year,
-          },
-          data: {
-            // amountPaid: { increment: payment.amount }, // Omitted as column is missing
-            // status remains 'unpaid'
-          }
-        });
+      const existingRecord = await prisma.monthlyPaymentRecord.findFirst({
+        where: {
+          studentId: payment.studentId,
+          month: payment.month,
+          year: payment.year
+        }
+      });
+
+      let currentPaid = (existingRecord?.amountPaid || 0) + payment.amount;
+      // If already paid in the past, or if the user is paying a previous balance that pushes them over
+      if (existingRecord?.status === 'paid' || currentPaid >= expectedAmount) {
+          currentPaid = expectedAmount;
       }
+
+      let newStatus = 'unpaid';
+      if (currentPaid >= expectedAmount) {
+        newStatus = 'paid';
+      } else if (currentPaid > 0) {
+        newStatus = 'partial';
+      }
+
+      const recordId = existingRecord?.id || crypto.randomUUID();
+
+      await prisma.$executeRawUnsafe(`
+        INSERT INTO "MonthlyPaymentRecord" (id, "studentId", month, year, status, "amountPaid", "updatedAt")
+        VALUES ($1, $2, $3, $4, $5, $6, NOW())
+        ON CONFLICT ("studentId", month, year) 
+        DO UPDATE SET status = EXCLUDED.status, "amountPaid" = EXCLUDED."amountPaid", "updatedAt" = NOW()
+      `, recordId, payment.studentId, payment.month, payment.year, newStatus, currentPaid);
     }
 
     res.json({ success: true, message: 'Payment verified and updated automatically.' });

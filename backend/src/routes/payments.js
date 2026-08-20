@@ -515,22 +515,253 @@ router.get('/monthly-status', authenticateToken, authorizeRoles('admin', 'owner'
                     { academicYearId: null } // Fallback for legacy records
                 ]
               },
-              select: { id: true, studentId: true, month: true, year: true, status: true }
+              select: { id: true, studentId: true, month: true, year: true, status: true, amountPaid: true }
+            },
+            Enrollments: {
+              where: { isCurrent: true },
+              include: {
+                clss: { include: { FeeStructures: { where: { name: 'Tuition Fee' } } } },
+                section: { include: { FeeStructures: { where: { name: 'Tuition Fee' } } } }
+              },
+              take: 1
             }
           }
         }
       }
     });
 
-    const results = enrollments.map(e => ({
-      studentId: e.studentId,
-      name: e.student.user.name,
-      student_id: e.student.student_id,
-      status: e.student.MonthlyPaymentRecord[0]?.status || 'unpaid'
+    // Pre-fetch all school fee structures once
+    let schoolId2 = req.user.schoolId;
+    if (!schoolId2) {
+      try {
+        const u = await prisma.user.findUnique({ where: { id: req.user.id } });
+        if (u) schoolId2 = u.schoolId;
+      } catch (_) {}
+    }
+    const allSchoolFees = await prisma.feeStructure.findMany({
+      where: { schoolId: schoolId2 || 'NONE', name: 'Tuition Fee', frequency: 'monthly' }
+    });
+
+    const results = await Promise.all(enrollments.map(async e => {
+      const rec = e.student.MonthlyPaymentRecord[0];
+      const enrollment = e.student.Enrollments?.[0];
+      // Resolve class fee: section fee → class fee → school default
+      let classFee = 0;
+      if (enrollment) {
+        const sectionFee = enrollment.section?.FeeStructures?.[0]?.amount;
+        const classFeeVal = enrollment.clss?.FeeStructures?.[0]?.amount;
+        const schoolFee = allSchoolFees.find(f => f.classId === enrollment.classId)?.amount;
+        classFee = sectionFee ?? classFeeVal ?? schoolFee ?? 0;
+      }
+      return {
+        studentId: e.studentId,
+        name: e.student.user.name,
+        student_id: e.student.student_id,
+        status: rec?.status || 'unpaid',
+        amountPaid: rec?.amountPaid || 0,
+        classFee
+      };
     }));
 
     res.json(results);
   } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+// PDF export route for monthly fee status
+router.get('/monthly-status/pdf', authenticateToken, authorizeRoles('admin', 'owner', 'accountant'), async (req, res) => {
+  const { classId, sectionId, month, year } = req.query;
+  if (!month || !year) return res.status(400).json({ message: 'Missing month or year' });
+
+  try {
+    let schoolId = req.user.schoolId;
+    if (req.user.role === 'super_admin' && req.query.schoolId) schoolId = req.query.schoolId;
+    if (!schoolId && !['super_admin', 'owner'].includes((req.user.role || '').toLowerCase())) {
+      try {
+        const u = await prisma.user.findUnique({ where: { id: req.user.id } });
+        if (u) schoolId = u.schoolId;
+      } catch (err) { console.error('PDF monthly-status schoolId recovery:', err); }
+    }
+
+    const school = schoolId ? await prisma.school.findUnique({ where: { id: schoolId } }) : null;
+    const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    const monthName = monthNames[parseInt(month) - 1] || month;
+
+    const dateOfPayment = new Date(year, month - 1, 15);
+    let academicYear = await prisma.academicYear.findFirst({
+      where: { schoolId, startDate: { lte: dateOfPayment }, endDate: { gte: dateOfPayment } }
+    });
+    const currentAcademicYear = await prisma.academicYear.findFirst({ where: { schoolId, isCurrent: true } });
+    if (currentAcademicYear) {
+      const startYr = new Date(currentAcademicYear.startDate).getFullYear();
+      const endYr = new Date(currentAcademicYear.endDate).getFullYear();
+      if ((parseInt(year) >= startYr && parseInt(year) <= endYr) || !academicYear) academicYear = currentAcademicYear;
+    }
+    if (!academicYear) return res.status(400).json({ message: 'No academic year found.' });
+
+    const enrollments = await prisma.enrollment.findMany({
+      where: {
+        schoolId,
+        status: { in: ['active', 'promoted', 'retained'] },
+        OR: [{ academicYearId: academicYear.id, isCurrent: true }, { isCurrent: true }],
+        ...(classId ? { classId } : {}),
+        ...(sectionId ? { sectionId } : {})
+      },
+      include: {
+        student: {
+          include: {
+            user: true,
+            MonthlyPaymentRecord: {
+              where: {
+                month: parseInt(month),
+                year: parseInt(year),
+                OR: [{ academicYearId: academicYear.id }, { academicYearId: null }]
+              },
+              select: { status: true, amountPaid: true }
+            },
+            Enrollments: {
+              where: { isCurrent: true },
+              include: { clss: { include: { FeeStructures: { where: { name: 'Tuition Fee' } } } } },
+              take: 1
+            }
+          }
+        },
+        clss: true,
+        section: true
+      }
+    });
+
+    const allSchoolFees = await prisma.feeStructure.findMany({
+      where: { schoolId: schoolId || 'NONE', name: 'Tuition Fee', frequency: 'monthly' }
+    });
+
+    const rows = await Promise.all(enrollments.map(async (e, idx) => {
+      const rec = e.student.MonthlyPaymentRecord[0];
+      const enrollment = e.student.Enrollments?.[0];
+      let classFee = 0;
+      if (enrollment) {
+        const classFeeVal = enrollment.clss?.FeeStructures?.[0]?.amount;
+        const schoolFee = allSchoolFees.find(f => f.classId === enrollment.classId)?.amount;
+        classFee = classFeeVal ?? schoolFee ?? 0;
+      }
+      const status = rec?.status || 'unpaid';
+      const amountPaid = rec?.amountPaid || 0;
+      return {
+        idx: idx + 1,
+        name: e.student.user.name,
+        student_id: e.student.student_id,
+        className: e.clss?.class_name || '',
+        sectionName: e.section?.name || '',
+        status,
+        amountPaid,
+        classFee,
+        remaining: Math.max(0, classFee - amountPaid)
+      };
+    }));
+
+    const paid = rows.filter(r => r.status === 'paid');
+    const partial = rows.filter(r => r.status === 'partial');
+    const unpaid = rows.filter(r => r.status === 'unpaid');
+
+    const doc = new PDFDocument({ margin: 40, size: 'A4' });
+    res.setHeader('Content-disposition', `attachment; filename="Fee_Report_${monthName}_${year}.pdf"`);
+    res.setHeader('Content-type', 'application/pdf');
+    doc.pipe(res);
+
+    // Header
+    if (school?.logo) {
+      try {
+        if (school.logo.startsWith('data:image/')) {
+          const imgBuffer = Buffer.from(school.logo.split(';base64,').pop(), 'base64');
+          doc.image(imgBuffer, 40, 30, { width: 50 });
+        } else {
+          const logoPath = path.join(process.cwd(), school.logo.replace(/^\//, ''));
+          if (fs.existsSync(logoPath)) doc.image(logoPath, 40, 30, { width: 50 });
+        }
+      } catch (e) {}
+    }
+
+    doc.fontSize(18).fillColor('#1e293b').text(school?.name || 'Dugsi Pro', 100, 38);
+    doc.fontSize(10).fillColor('#64748b').text(`Lacagta Bisha: ${monthName} ${year}`, 100, 60);
+    doc.text(`Warbixinta la sameeyay: ${new Date().toLocaleDateString()}`, 100, 73);
+    doc.moveDown(2);
+
+    // Summary stats
+    const totalCollected = [...paid, ...partial].reduce((sum, r) => sum + r.amountPaid, 0);
+    const totalExpected = rows.reduce((sum, r) => sum + r.classFee, 0);
+
+    const statY = doc.y;
+    doc.roundedRect(40, statY, 155, 60, 8).fillAndStroke('#dcfce7', '#86efac');
+    doc.roundedRect(205, statY, 155, 60, 8).fillAndStroke('#fef9c3', '#fde047');
+    doc.roundedRect(370, statY, 155, 60, 8).fillAndStroke('#fee2e2', '#fca5a5');
+
+    doc.fontSize(22).fillColor('#16a34a').text(paid.length, 60, statY + 8, { align: 'left' });
+    doc.fontSize(9).fillColor('#15803d').text('BIXIYAY (PAID)', 40, statY + 38, { width: 155, align: 'center' });
+
+    doc.fontSize(22).fillColor('#ca8a04').text(partial.length, 225, statY + 8, { align: 'left' });
+    doc.fontSize(9).fillColor('#a16207').text('QAYB BIXIYAY (PARTIAL)', 205, statY + 38, { width: 155, align: 'center' });
+
+    doc.fontSize(22).fillColor('#dc2626').text(unpaid.length, 390, statY + 8, { align: 'left' });
+    doc.fontSize(9).fillColor('#b91c1c').text('MA BIXIN (UNPAID)', 370, statY + 38, { width: 155, align: 'center' });
+
+    doc.moveDown(5);
+    doc.fontSize(9).fillColor('#475569').text(`Wadarta La Ururiyay: $${totalCollected.toFixed(2)}   |   Wadarta La Filayey: $${totalExpected.toFixed(2)}`, { align: 'right' });
+    doc.moveDown(0.5);
+
+    // Table header
+    const drawTableHeader = (y) => {
+      doc.rect(40, y, 520, 20).fill('#1e293b');
+      doc.fontSize(8).fillColor('#ffffff');
+      doc.text('#', 45, y + 5);
+      doc.text('Magaca Ardayga', 65, y + 5);
+      doc.text('ID', 230, y + 5);
+      doc.text('Fasalka', 285, y + 5);
+      doc.text('Status', 355, y + 5);
+      doc.text('Bixiyay', 415, y + 5);
+      doc.text('Fee-ga', 470, y + 5);
+      doc.text('Hadhay', 515, y + 5);
+    };
+
+    const drawRow = (row, y, isEven) => {
+      if (isEven) doc.rect(40, y, 520, 18).fill('#f8fafc').stroke('#e2e8f0');
+      else doc.rect(40, y, 520, 18).stroke('#e2e8f0');
+
+      const statusColor = row.status === 'paid' ? '#16a34a' : row.status === 'partial' ? '#ca8a04' : '#dc2626';
+      const statusLabel = row.status === 'paid' ? 'Bixiyay' : row.status === 'partial' ? 'Qayb' : 'Ma Bixin';
+
+      doc.fontSize(7.5).fillColor('#1e293b');
+      doc.text(row.idx, 45, y + 4);
+      doc.text(row.name.substring(0, 22), 65, y + 4);
+      doc.text(row.student_id || '-', 230, y + 4);
+      doc.text((row.className + (row.sectionName ? ' - ' + row.sectionName : '')).substring(0, 15), 285, y + 4);
+      doc.fillColor(statusColor).text(statusLabel, 355, y + 4);
+      doc.fillColor('#1e293b');
+      doc.text(row.amountPaid > 0 ? `$${row.amountPaid.toFixed(2)}` : '-', 415, y + 4);
+      doc.text(row.classFee > 0 ? `$${row.classFee.toFixed(2)}` : '-', 470, y + 4);
+      doc.text(row.remaining > 0 ? `$${row.remaining.toFixed(2)}` : '-', 515, y + 4);
+    };
+
+    let currentY = doc.y + 5;
+    drawTableHeader(currentY);
+    currentY += 22;
+
+    rows.forEach((row, i) => {
+      if (currentY > 750) {
+        doc.addPage();
+        currentY = 40;
+        drawTableHeader(currentY);
+        currentY += 22;
+      }
+      drawRow(row, currentY, i % 2 === 0);
+      currentY += 19;
+    });
+
+    doc.moveDown(3);
+    doc.fontSize(8).fillColor('#94a3b8').text('Nidaamka Dugsi Pro — Warbixinta Lacagta', { align: 'center' });
+    doc.end();
+  } catch (err) {
+    console.error('[PDF monthly-status error]', err);
+    res.status(500).json({ message: err.message });
+  }
 });
 
 
@@ -607,14 +838,14 @@ router.get('/student/:studentId/status-history', authenticateToken, async (req, 
 
 // Toggle monthly payment status
 router.post('/toggle', authenticateToken, authorizeRoles('admin', 'owner', 'accountant'), async (req, res) => {
-  const { studentId, month, year, status, payment_method, transactionId, phoneNumber } = req.body;
+  const { studentId, month, year, status, payment_method, transactionId, phoneNumber, amountPaid } = req.body;
   if (!studentId || !month || !year || !status) return res.status(400).json({ message: 'Missing fields' });
 
   // Prevent marking future months as paid
   const now = new Date();
   const currentMonth = now.getMonth() + 1;
   const currentYear = now.getFullYear();
-  if (status === 'paid' && (parseInt(year) > currentYear || (parseInt(year) === currentYear && parseInt(month) > currentMonth))) {
+  if ((status === 'paid' || status === 'partial') && (parseInt(year) > currentYear || (parseInt(year) === currentYear && parseInt(month) > currentMonth))) {
     return res.status(400).json({ message: 'Lama bixin karo lacagta bilaha mustaqbalka.' });
   }
 
@@ -659,16 +890,40 @@ router.post('/toggle', authenticateToken, authorizeRoles('admin', 'owner', 'acco
       const enrollment = selectEnrollment(student.Enrollments || [], parseInt(month), parseInt(year));
       const ayId = enrollment?.academicYearId || null;
 
+      // Resolve class fee for validation
+      let classFee = 0;
+      if (enrollment) {
+        classFee = await resolveStudentTuitionFee(tx, enrollment, student);
+      }
+
+      // Validate partial amount doesn't exceed class fee
+      let numericAmountPaid = null;
+      if (status === 'partial') {
+        numericAmountPaid = Number(amountPaid);
+        if (isNaN(numericAmountPaid) || numericAmountPaid <= 0) {
+          throw new Error('Lacagta qayb-bixinta waa inay ka badan tahay 0.');
+        }
+        if (classFee > 0 && numericAmountPaid > classFee) {
+          throw new Error(`Lacagta laga bixin karo waxay tahay $${classFee} oo kaliya. Lacagta aad galisay ($${numericAmountPaid}) waa ka badan tahay.`);
+        }
+        if (classFee > 0 && numericAmountPaid >= classFee) {
+          // If paying full amount, mark as paid
+          numericAmountPaid = classFee;
+        }
+      } else if (status === 'paid') {
+        numericAmountPaid = classFee || null;
+      }
+
       await tx.$executeRawUnsafe(`
-        INSERT INTO "MonthlyPaymentRecord" (id, "studentId", month, year, status, "updatedAt", "academicYearId")
-        VALUES ($1, $2, $3, $4, $5, NOW(), $6)
+        INSERT INTO "MonthlyPaymentRecord" (id, "studentId", month, year, status, "amountPaid", "updatedAt", "academicYearId")
+        VALUES ($1, $2, $3, $4, $5, $6, NOW(), $7)
         ON CONFLICT ("studentId", month, year, "academicYearId") 
-        DO UPDATE SET status = EXCLUDED.status, "updatedAt" = NOW()
-      `, recordId, studentId, parseInt(month), parseInt(year), status, ayId);
+        DO UPDATE SET status = EXCLUDED.status, "amountPaid" = EXCLUDED."amountPaid", "updatedAt" = NOW()
+      `, recordId, studentId, parseInt(month), parseInt(year), status, numericAmountPaid, ayId);
 
       const rec = await tx.monthlyPaymentRecord.findFirst({
         where: { studentId, month: parseInt(month), year: parseInt(year), academicYearId: ayId },
-        select: { id: true, studentId: true, month: true, year: true, status: true }
+        select: { id: true, studentId: true, month: true, year: true, status: true, amountPaid: true }
       });
 
       if (status === 'paid') {
@@ -698,15 +953,36 @@ router.post('/toggle', authenticateToken, authorizeRoles('admin', 'owner', 'acco
             });
           }
         }
+      } else if (status === 'partial') {
+        // For partial: update or create a partial payment record
+        const existingPayment = await tx.payment.findFirst({
+          where: { studentId, month: parseInt(month), year: parseInt(year), description: { contains: 'Tuition Fee' } }
+        });
+        if (existingPayment) {
+          await tx.payment.update({
+            where: { id: existingPayment.id },
+            data: { amount: numericAmountPaid, payment_method: payment_method || 'Cash' }
+          });
+        } else if (enrollment) {
+          await tx.payment.create({
+            data: {
+              studentId,
+              amount: numericAmountPaid,
+              payment_method: payment_method || 'Cash',
+              transactionId,
+              phoneNumber,
+              description: `Tuition Fee (Partial) for ${month}/${year}`,
+              month: parseInt(month),
+              year: parseInt(year),
+              date: new Date(),
+              schoolId: schoolId || student.user.schoolId,
+              academicYearId: ayId
+            }
+          });
+        }
       } else {
         // PERMISSION CHECK: If accountant, check if they can delete payments
         if (req.user.role === 'accountant') {
-          const { authorizePermission } = require('../middleware/auth');
-          // We can't easily use middleware inside the handler for a specific condition, 
-          // but we can manually check the setting or use a helper.
-          // However, it's cleaner to just protect the whole endpoint if we want, 
-          // but toggle is also used for marking as PAID.
-          // Let's do a manual check here for simplicity in this specific conditional case.
           const setting = await tx.schoolSettings.findUnique({
             where: { key_schoolId: { key: 'perm_acc_delete_payment', schoolId: schoolId || req.user.schoolId } }
           });
@@ -734,7 +1010,7 @@ router.post('/toggle', authenticateToken, authorizeRoles('admin', 'owner', 'acco
 
 // Bulk update monthly payment status
 router.post('/bulk', authenticateToken, authorizeRoles('admin', 'owner', 'accountant'), async (req, res) => {
-  const { updates, month, year, payment_method } = req.body; // updates: [{ studentId, status }]
+  const { updates, month, year, payment_method } = req.body; // updates: [{ studentId, status, amountPaid? }]
   if (!updates || !Array.isArray(updates) || !month || !year) return res.status(400).json({ message: 'Invalid data' });
 
   // Prevent marking future months as paid
@@ -790,16 +1066,31 @@ router.post('/bulk', authenticateToken, authorizeRoles('admin', 'owner', 'accoun
             const enrollment = selectEnrollment(student.Enrollments || [], parseInt(month), parseInt(year));
             const ayId = enrollment?.academicYearId || null;
 
+            // Resolve class fee for partial validation
+            let classFee = 0;
+            if (enrollment) classFee = await resolveStudentTuitionFee(tx, enrollment, student);
+
+            // Get amountPaid from the update object
+            const updateObj = updates.find(u => u.studentId === studentId);
+            let numericAmountPaid = null;
+            if (status === 'partial') {
+              numericAmountPaid = Number(updateObj?.amountPaid || 0);
+              if (isNaN(numericAmountPaid) || numericAmountPaid <= 0) numericAmountPaid = 0;
+              if (classFee > 0 && numericAmountPaid > classFee) numericAmountPaid = classFee;
+            } else if (status === 'paid') {
+              numericAmountPaid = classFee || null;
+            }
+
             await tx.$executeRawUnsafe(`
-              INSERT INTO "MonthlyPaymentRecord" (id, "studentId", month, year, status, "updatedAt", "academicYearId")
-              VALUES ($1, $2, $3, $4, $5, NOW(), $6)
+              INSERT INTO "MonthlyPaymentRecord" (id, "studentId", month, year, status, "amountPaid", "updatedAt", "academicYearId")
+              VALUES ($1, $2, $3, $4, $5, $6, NOW(), $7)
               ON CONFLICT ("studentId", month, year, "academicYearId")
-              DO UPDATE SET status = EXCLUDED.status, "updatedAt" = NOW()
-            `, recordId, studentId, parseInt(month), parseInt(year), status, ayId);
+              DO UPDATE SET status = EXCLUDED.status, "amountPaid" = EXCLUDED."amountPaid", "updatedAt" = NOW()
+            `, recordId, studentId, parseInt(month), parseInt(year), status, numericAmountPaid, ayId);
 
             const rec = await tx.monthlyPaymentRecord.findFirst({
               where: { studentId, month: parseInt(month), year: parseInt(year), academicYearId: ayId },
-              select: { id: true, studentId: true, month: true, year: true, status: true }
+              select: { id: true, studentId: true, month: true, year: true, status: true, amountPaid: true }
             });
 
             if (status === 'paid') {
@@ -814,6 +1105,30 @@ router.post('/bulk', authenticateToken, authorizeRoles('admin', 'owner', 'accoun
                     amount: finalAmount,
                     payment_method: payment_method || 'Cash',
                     description: `Tuition Fee for ${month}/${year}${student.scholarship !== 'none' ? ` (${student.scholarship} scholarship)` : ''}`,
+                    month: parseInt(month),
+                    year: parseInt(year),
+                    date: new Date(),
+                    schoolId: effectiveSchoolId || student.user.schoolId,
+                    academicYearId: ayId
+                  }
+                });
+              }
+            } else if (status === 'partial') {
+              const existingPayment = await tx.payment.findFirst({
+                where: { studentId, month: parseInt(month), year: parseInt(year), description: { contains: 'Tuition Fee' } }
+              });
+              if (existingPayment) {
+                await tx.payment.update({
+                  where: { id: existingPayment.id },
+                  data: { amount: numericAmountPaid, payment_method: payment_method || 'Cash' }
+                });
+              } else if (enrollment && numericAmountPaid > 0) {
+                await tx.payment.create({
+                  data: {
+                    studentId,
+                    amount: numericAmountPaid,
+                    payment_method: payment_method || 'Cash',
+                    description: `Tuition Fee (Partial) for ${month}/${year}`,
                     month: parseInt(month),
                     year: parseInt(year),
                     date: new Date(),

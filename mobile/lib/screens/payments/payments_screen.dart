@@ -80,7 +80,8 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
   Future<void> _showPayDialog(dynamic p, {bool isAll = false}) async {
     final TextEditingController phoneController = TextEditingController();
     final TextEditingController nameController = TextEditingController();
-    final amount = p['amount'] ?? 0;
+    final maxAmount = p['amount'] ?? 0;
+    final TextEditingController amountController = TextEditingController(text: '$maxAmount');
     
     showDialog(
       context: context,
@@ -101,9 +102,22 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('Wadarta:', style: TextStyle(fontWeight: FontWeight.bold)),
-                    Text('\$$amount', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 20.sp, color: AppTheme.success)),
+                    const Text('Wadarta Dhiman:', style: TextStyle(fontWeight: FontWeight.bold)),
+                    Text('\$$maxAmount', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 20.sp, color: AppTheme.success)),
                   ],
+                ),
+              ),
+              SizedBox(height: 20.h),
+              Text('Lacagta la bixinayo:', style: TextStyle(fontSize: 12.sp, fontWeight: FontWeight.bold)),
+              SizedBox(height: 8.h),
+              TextField(
+                controller: amountController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: InputDecoration(
+                  hintText: 'Gali lacagta',
+                  filled: true,
+                  fillColor: Colors.grey[100],
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(15.r), borderSide: BorderSide.none),
                 ),
               ),
               SizedBox(height: 20.h),
@@ -146,14 +160,20 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
             onPressed: () async {
               final phone = phoneController.text.trim();
               final name = nameController.text.trim();
-              if (phone.isEmpty || name.isEmpty) {
+              final double? enteredAmount = double.tryParse(amountController.text.trim());
+
+              if (phone.isEmpty || name.isEmpty || enteredAmount == null) {
                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Fadlan buuxi meelaha banaan')));
+                return;
+              }
+              if (enteredAmount <= 0 || enteredAmount > maxAmount) {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Lacagtu waa inaysan ka badnaan \$$maxAmount')));
                 return;
               }
               Navigator.pop(ctx);
               _processPayment(
                 p['studentId'] ?? p['id'], 
-                amount, 
+                enteredAmount, 
                 phone, 
                 name, 
                 month: p['month'], 

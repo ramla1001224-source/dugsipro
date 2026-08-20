@@ -32,6 +32,7 @@ export default function AdminPayments() {
     const [schoolInfo, setSchoolInfo] = useState({})
     const [canEditFees, setCanEditFees] = useState(true)
     const [userRole, setUserRole] = useState('')
+    const [partialAmounts, setPartialAmounts] = useState({}) // { studentId: amount }
 
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4001'
     const headers = () => ({ Authorization: `Bearer ${localStorage.getItem('token')}` })
@@ -147,22 +148,43 @@ export default function AdminPayments() {
 
     const [localStatuses, setLocalStatuses] = useState({}) 
 
-    const toggleStatus = (studentId, currentStatus) => {
+    // Cycle: unpaid → paid → partial → unpaid
+    const toggleStatus = (studentId, currentStatus, classFee) => {
         const effectiveStatus = localStatuses[studentId] || currentStatus
-        const newStatus = effectiveStatus === 'paid' ? 'unpaid' : 'paid'
+        let newStatus
+        if (effectiveStatus === 'unpaid') newStatus = 'paid'
+        else if (effectiveStatus === 'paid') newStatus = 'partial'
+        else newStatus = 'unpaid'
         setLocalStatuses(prev => ({ ...prev, [studentId]: newStatus }))
+        // Pre-fill partial amount with 0 when switching to partial
+        if (newStatus === 'partial') {
+            setPartialAmounts(prev => ({ ...prev, [studentId]: prev[studentId] || '' }))
+        }
     }
 
     const saveBulkChanges = async () => {
         if (saving) return
         setSaving(true)
         try {
-            const updates = Object.entries(localStatuses).map(([studentId, status]) => ({ studentId, status }))
+            const updates = Object.entries(localStatuses).map(([studentId, status]) => ({
+                studentId,
+                status,
+                amountPaid: status === 'partial' ? Number(partialAmounts[studentId] || 0) : undefined
+            }))
             if (updates.length === 0) { setSaving(false); return }
+            // Validate partial amounts
+            for (const u of updates) {
+                if (u.status === 'partial' && (!u.amountPaid || u.amountPaid <= 0)) {
+                    alert('Fadlan gali lacagta qayb-bixinta ardayga ' + u.studentId)
+                    setSaving(false)
+                    return
+                }
+            }
             await axios.post(`${apiUrl}/api/payments/bulk`, { updates, month, year, payment_method: bulkMethod }, { headers: headers() })
             setLocalStatuses({})
+            setPartialAmounts({})
             fetchData()
-            alert('Class payments synced successfully!')
+            alert('Lacagaha fasalka si guul leh ayaa loo keydsaday!')
         } catch (e) {
             const msg = e.response?.data?.message || 'Error saving changes'
             alert('Error: ' + msg)
@@ -195,20 +217,36 @@ export default function AdminPayments() {
         exportToExcel(data, `Payments_${viewMode}_Report`)
     }
 
-    const handleExportPDF = () => {
-        let headers = []
-        let data = []
+    const handleExportPDF = async () => {
         if (viewMode === 'status') {
-            headers = [t('name'), t('id'), t('status')]
-            data = monthlyStatus.map(s => [s.name, s.student_id, localStatuses[s.studentId] || s.status])
-        } else {
-            headers = [t('name'), t('id'), t('amount'), t('date'), 'Method']
-            data = students.map(s => {
-                const p = payments.find(pay => pay.studentId === s.id)
-                return [s.user?.name || s.name, s.student_id, p ? `$${p.amount}` : 'Unpaid', p ? new Date(p.date).toLocaleDateString() : '—', p ? p.payment_method : 'Pending']
-            })
+            // Use backend PDF route for detailed monthly fee report
+            const info = typeof window !== 'undefined' ? localStorage.getItem('schoolInfo') : ''
+            const schoolQuery = info ? `&schoolId=${JSON.parse(info).id}` : ''
+            const url = `${apiUrl}/api/payments/monthly-status/pdf?classId=${selectedClass}${selectedSection ? `&sectionId=${selectedSection}` : ''}&month=${month}&year=${year}${schoolQuery}`
+            const token = localStorage.getItem('token')
+            try {
+                const res = await axios.get(url, { headers: { Authorization: `Bearer ${token}` }, responseType: 'blob' })
+                const blob = new Blob([res.data], { type: 'application/pdf' })
+                const link = document.createElement('a')
+                link.href = URL.createObjectURL(blob)
+                const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December']
+                link.download = `Fee_Report_${monthNames[month - 1]}_${year}.pdf`
+                link.click()
+                URL.revokeObjectURL(link.href)
+            } catch (err) {
+                alert('PDF download khalad ah: ' + (err.response?.data?.message || err.message))
+            }
+            return
         }
-        exportToPDF(headers, data, `Payments_${viewMode}_Report`, t('fees'), schoolInfo)
+        // History mode: use client-side PDF
+        let pdfHeaders = []
+        let data = []
+        pdfHeaders = [t('name'), t('id'), t('amount'), t('date'), 'Method']
+        data = students.map(s => {
+            const p = payments.find(pay => pay.studentId === s.id)
+            return [s.user?.name || s.name, s.student_id, p ? `$${p.amount}` : 'Unpaid', p ? new Date(p.date).toLocaleDateString() : '—', p ? p.payment_method : 'Pending']
+        })
+        exportToPDF(pdfHeaders, data, `Payments_history_Report`, t('fees'), schoolInfo)
     }
 
     const handleSubmit = async (e) => {
@@ -436,11 +474,14 @@ export default function AdminPayments() {
             <div className="bg-white rounded-[2.5rem] shadow-sm border border-gray-50 overflow-hidden relative">
                 <div className="overflow-x-auto w-full">
                     <table className="w-full text-left min-w-max">
-                    <thead>
+                        <thead>
                         <tr className="bg-slate-50/50 text-slate-400 text-[10px] uppercase font-black tracking-[0.2em]">
                             <th className="px-8 py-6">{t('students')}</th>
                             {viewMode === 'status' ? (
-                                <th className="px-8 py-6 text-center">Payment Status</th>
+                                <>
+                                    <th className="px-8 py-6 text-center">Lacagta / Fee-ga</th>
+                                    <th className="px-8 py-6 text-center">Payment Status</th>
+                                </>
                             ) : (
                                 <>
                                     <th className="px-8 py-6">{t('amount')}</th>
@@ -456,19 +497,66 @@ export default function AdminPayments() {
                         ) : viewMode === 'status' ? (
                             monthlyStatus.map(s => {
                                 const status = localStatuses[s.studentId] || s.status;
+                                const classFee = s.classFee || 0
+                                const amountPaid = status === 'paid'
+                                    ? classFee
+                                    : status === 'partial'
+                                        ? (partialAmounts[s.studentId] !== undefined ? Number(partialAmounts[s.studentId]) : (s.amountPaid || 0))
+                                        : 0
                                 return (
                                     <tr key={s.studentId} className="hover:bg-gray-50/50 transition-colors group">
-                                        <td className="px-8 py-6">
+                                        <td className="px-8 py-5">
                                             <div className="font-black text-slate-800 text-lg group-hover:text-blue-600 transition-colors uppercase">{s.name}</div>
                                             <div className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{s.student_id}</div>
                                         </td>
-                                        <td className="px-8 py-6">
+                                        {/* Lacagta column */}
+                                        <td className="px-8 py-5">
+                                            <div className="flex flex-col items-center gap-1">
+                                                {status === 'partial' ? (
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-amber-600 font-bold text-xs">$</span>
+                                                        <input
+                                                            type="number"
+                                                            min="0.01"
+                                                            max={classFee || undefined}
+                                                            step="0.01"
+                                                            className="w-24 border border-amber-300 rounded-xl px-3 py-1.5 text-sm font-bold text-amber-700 focus:ring-2 focus:ring-amber-400 outline-none bg-amber-50"
+                                                            placeholder="0.00"
+                                                            value={partialAmounts[s.studentId] !== undefined ? partialAmounts[s.studentId] : (s.amountPaid || '')}
+                                                            onChange={e => {
+                                                                const val = e.target.value
+                                                                if (classFee > 0 && Number(val) > classFee) return
+                                                                setPartialAmounts(prev => ({ ...prev, [s.studentId]: val }))
+                                                            }}
+                                                        />
+                                                        {classFee > 0 && <span className="text-gray-400 text-xs font-bold">/ ${classFee}</span>}
+                                                    </div>
+                                                ) : (
+                                                    <div className="text-center">
+                                                        {status === 'paid' && classFee > 0 && (
+                                                            <span className="text-emerald-600 font-black text-sm">${classFee}</span>
+                                                        )}
+                                                        {status === 'unpaid' && classFee > 0 && (
+                                                            <span className="text-slate-400 font-bold text-xs">${classFee} <span className="text-rose-400">hadhay</span></span>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </td>
+                                        {/* Status button */}
+                                        <td className="px-8 py-5">
                                             <div className="flex justify-center">
                                                 <button
-                                                    onClick={() => toggleStatus(s.studentId, s.status)}
-                                                    className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${status === 'paid' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-100' : 'bg-rose-100 text-rose-600'}`}
+                                                    onClick={() => toggleStatus(s.studentId, s.status, classFee)}
+                                                    className={`px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                                                        status === 'paid'
+                                                            ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-100 hover:bg-emerald-700'
+                                                            : status === 'partial'
+                                                                ? 'bg-amber-400 text-white shadow-lg shadow-amber-100 hover:bg-amber-500'
+                                                                : 'bg-rose-100 text-rose-600 hover:bg-rose-200'
+                                                    }`}
                                                 >
-                                                    {status === 'paid' ? 'Bixiyay (Paid)' : 'Ma Bixin (Unpaid)'}
+                                                    {status === 'paid' ? '✅ Bixiyay (Paid)' : status === 'partial' ? '🟡 Qayb Bixiyay' : '❌ Ma Bixin'}
                                                 </button>
                                             </div>
                                         </td>

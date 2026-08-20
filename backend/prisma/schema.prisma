@@ -389,6 +389,7 @@ model MonthlyPaymentRecord {
   month          Int
   year           Int
   status         String        @default("unpaid")
+  amountPaid     Float?
   updatedAt      DateTime      @updatedAt
   student        Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
   academicYearId String?
