@@ -1,5 +1,10 @@
+import 'dart:io';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../main.dart';
 import '../../services/api_service.dart';
 import '../../services/auth_service.dart';
@@ -248,6 +253,114 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
     }
   }
 
+  // ──────────── PDF Download ────────────
+  Future<void> _downloadPdf() async {
+    try {
+      const storage = FlutterSecureStorage();
+      final token = await storage.read(key: 'token');
+      final secParam = _selectedSectionId != null ? '&sectionId=$_selectedSectionId' : '';
+      final url = '${ApiConfig.baseUrl}${ApiConfig.payments}/monthly-status/pdf'
+          '?classId=$_selectedClassId$secParam&month=$_month&year=$_year';
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('📄 PDF la soo dagsanayaa...')),
+        );
+      }
+
+      final dio = Dio();
+      final response = await dio.get(
+        url,
+        options: Options(
+          headers: {'Authorization': 'Bearer $token'},
+          responseType: ResponseType.bytes,
+        ),
+      );
+
+      final dir = await getTemporaryDirectory();
+      final months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      final fileName = 'Fee_Report_${months[_month - 1]}_$_year.pdf';
+      final file = File('${dir.path}/$fileName');
+      await file.writeAsBytes(response.data as List<int>);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('✅ PDF la keydsaday: $fileName'),
+            action: SnackBarAction(
+              label: 'Fur',
+              onPressed: () async {
+                final uri = Uri.file(file.path);
+                if (await canLaunchUrl(uri)) await launchUrl(uri);
+              },
+            ),
+            duration: const Duration(seconds: 6),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('PDF khalad: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  // ──────────── CSV/Excel Export ────────────
+  Future<void> _exportCsv() async {
+    try {
+      final rows = <List<String>>[
+        ['Magaca Ardayga', 'ID', 'Xaalad', 'Bixiyay', 'Fee-ga', 'Hadhay']
+      ];
+
+      for (final s in _monthlyStatus) {
+        final status = _localStatuses[s['studentId']] ?? s['status'] ?? 'unpaid';
+        final classFee = (s['classFee'] ?? 0).toDouble();
+        double amountPaid = (s['amountPaid'] ?? 0).toDouble();
+        if (status == 'paid') amountPaid = classFee;
+        final remaining = (classFee - amountPaid).clamp(0, double.infinity);
+        rows.add([
+          s['name'] ?? '',
+          s['student_id'] ?? '',
+          status == 'paid' ? 'Paid' : status == 'partial' ? 'Partial' : 'Unpaid',
+          '\$${amountPaid.toStringAsFixed(2)}',
+          '\$${classFee.toStringAsFixed(2)}',
+          '\$${remaining.toStringAsFixed(2)}',
+        ]);
+      }
+
+      final csvContent = rows.map((r) => r.map((c) => '"$c"').join(',')).join('\n');
+      final dir = await getTemporaryDirectory();
+      final months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      final fileName = 'Fee_Report_${months[_month - 1]}_$_year.csv';
+      final file = File('${dir.path}/$fileName');
+      await file.writeAsString(csvContent);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('✅ Excel la keydsaday: $fileName'),
+            action: SnackBarAction(
+              label: 'Fur',
+              onPressed: () async {
+                final uri = Uri.file(file.path);
+                if (await canLaunchUrl(uri)) await launchUrl(uri);
+              },
+            ),
+            duration: const Duration(seconds: 6),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Excel khalad: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -302,6 +415,69 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
                     if (_userRole != 'student') _buildModeToggle(),
                   ],
                 ),
+                // ── Download buttons for admin/accountant ──
+                if (_viewMode == 'status' &&
+                    (_userRole == 'admin' || _userRole == 'accountant' ||
+                     _userRole == 'owner' || _userRole == 'super_admin')) ...[
+                  SizedBox(height: 12.h),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: _downloadPdf,
+                          child: Container(
+                            padding: EdgeInsets.symmetric(vertical: 10.h),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFEF2F2),
+                              borderRadius: BorderRadius.circular(10.r),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Text('📄', style: TextStyle(fontSize: 14)),
+                                SizedBox(width: 6.w),
+                                Text('DAGSO PDF',
+                                    style: TextStyle(
+                                      fontSize: 9.sp,
+                                      fontWeight: FontWeight.w900,
+                                      color: const Color(0xFFDC2626),
+                                      letterSpacing: 0.8,
+                                    )),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      SizedBox(width: 8.w),
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: _exportCsv,
+                          child: Container(
+                            padding: EdgeInsets.symmetric(vertical: 10.h),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFECFDF5),
+                              borderRadius: BorderRadius.circular(10.r),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Text('📊', style: TextStyle(fontSize: 14)),
+                                SizedBox(width: 6.w),
+                                Text('DAGSO EXCEL',
+                                    style: TextStyle(
+                                      fontSize: 9.sp,
+                                      fontWeight: FontWeight.w900,
+                                      color: const Color(0xFF059669),
+                                      letterSpacing: 0.8,
+                                    )),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),
