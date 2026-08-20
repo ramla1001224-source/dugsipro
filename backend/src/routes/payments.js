@@ -644,7 +644,8 @@ router.get('/monthly-status/pdf', authenticateToken, authorizeRoles('admin', 'ow
         classFee = classFeeVal ?? schoolFee ?? 0;
       }
       const status = rec?.status || 'unpaid';
-      const amountPaid = rec?.amountPaid || 0;
+      let amountPaid = rec?.amountPaid || 0;
+      if (status === 'paid') amountPaid = classFee;
       return {
         idx: idx + 1,
         name: e.student.user.name,
@@ -735,9 +736,9 @@ router.get('/monthly-status/pdf', authenticateToken, authorizeRoles('admin', 'ow
       doc.text((row.className + (row.sectionName ? ' - ' + row.sectionName : '')).substring(0, 15), 285, y + 4);
       doc.fillColor(statusColor).text(statusLabel, 355, y + 4);
       doc.fillColor('#1e293b');
-      doc.text(row.amountPaid > 0 ? `$${row.amountPaid.toFixed(2)}` : '-', 415, y + 4);
-      doc.text(row.classFee > 0 ? `$${row.classFee.toFixed(2)}` : '-', 470, y + 4);
-      doc.text(row.remaining > 0 ? `$${row.remaining.toFixed(2)}` : '-', 515, y + 4);
+      doc.text(row.amountPaid > 0 ? `$${row.amountPaid.toFixed(2)}` : '$0.00', 415, y + 4);
+      doc.text(row.classFee > 0 ? `$${row.classFee.toFixed(2)}` : '$0.00', 470, y + 4);
+      doc.text(`$${row.remaining.toFixed(2)}`, 515, y + 4);
     };
 
     let currentY = doc.y + 5;

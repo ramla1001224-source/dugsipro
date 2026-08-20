@@ -196,11 +196,21 @@ export default function AdminPayments() {
     const handleExportExcel = () => {
         let data = []
         if (viewMode === 'status') {
-            data = monthlyStatus.map(s => ({
-                [t('name')]: s.name,
-                [t('id')]: s.student_id,
-                [t('status')]: localStatuses[s.studentId] || s.status
-            }))
+            data = monthlyStatus.map(s => {
+                const status = localStatuses[s.studentId] || s.status
+                const classFee = s.classFee || 0
+                let amountPaid = s.amountPaid || 0
+                if (status === 'paid') amountPaid = classFee
+                const remaining = Math.max(0, classFee - amountPaid)
+                return {
+                    [t('name')]: s.name,
+                    [t('id')]: s.student_id,
+                    [t('status')]: status === 'paid' ? 'Paid' : status === 'partial' ? 'Partial' : 'Unpaid',
+                    'Bixiyay': `$${amountPaid.toFixed(2)}`,
+                    'Fee-ga': `$${classFee.toFixed(2)}`,
+                    'Hadhay': `$${remaining.toFixed(2)}`
+                }
+            })
         } else {
             data = students.map(s => {
                 const p = payments.find(pay => pay.studentId === s.id)
